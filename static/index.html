@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Receipt Approval</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <header>
+    <h1>🧾 Receipt Approval</h1>
+    <div class="header-right">
+      <span id="provider-badge" class="badge badge-muted"></span>
+      <div class="role-toggle">
+        <button id="role-employee" class="active">Employee</button>
+        <button id="role-manager">Manager</button>
+      </div>
+    </div>
+  </header>
+
+  <main>
+    <section id="employee-view">
+      <div class="upload-card">
+        <input type="file" id="file-input" accept="image/png,image/jpeg,image/gif,image/webp,application/pdf" hidden>
+        <button id="upload-btn" class="primary">Upload receipt</button>
+        <span class="hint">Image or PDF, up to 15&nbsp;MB</span>
+        <span id="upload-status"></span>
+      </div>
+      <div id="employee-list" class="receipt-list"></div>
+    </section>
+
+    <section id="manager-view" hidden>
+      <h2>Pending approvals</h2>
+      <div id="manager-list" class="receipt-list"></div>
+      <h2>Recently reviewed</h2>
+      <div id="manager-done-list" class="receipt-list"></div>
+    </section>
+
+    <div id="detail-overlay" hidden>
+      <div id="detail-panel"></div>
+    </div>
+  </main>
+
+  <script src="/app.js"></script>
+</body>
+</html>
