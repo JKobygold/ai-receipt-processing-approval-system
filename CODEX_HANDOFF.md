@@ -969,6 +969,32 @@ Codex GPT-5.5 made the assignment deliverable language more explicit in the READ
 
 - None.
 
+## Latest Edit: README Readability Pass
+
+Codex GPT-5.5 cleaned up the README formatting so the GitHub page is easier to scan as a job submission.
+
+### What Changed
+
+- Reworked the intro into a concise project summary.
+- Added a small links table for the live demo and walkthrough video.
+- Replaced longer bullets with clearer feature and AI-tools tables.
+- Split setup into local, Docker, tests, and configuration sections.
+- Standardized assignment-facing headings, including `Source Code & DB Schema/Migrations`, `AI Tools Used`, and `Potential Future Improvements`.
+
+### Files Modified
+
+- `README.md`
+- `CODEX_HANDOFF.md`
+
+### Verification
+
+- Docs-only change; no application code touched.
+- Reviewed the README headings and required deliverable sections after the edit.
+
+### Known Risk / Follow-Up
+
+- None.
+
 ## Latest Edit: README — video link + camera capture line
 
 Claude Code (Fable 5) applied two doc-only additions from a README review.
