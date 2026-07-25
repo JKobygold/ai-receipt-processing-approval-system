@@ -70,11 +70,13 @@ function tableRow(r) {
   const dup = r.duplicate_of_id ? `<div class="rt-flags"><span class="badge-dup">⚠ possible duplicate of #${r.duplicate_of_id}</span></div>` : "";
   const rejected = r.status === "rejected" && r.manager_comment
     ? `<div class="rt-flags"><span class="badge-dup" style="color:var(--danger);border-color:#e3b6ad;background:#f7e3df;">Manager: ${escapeHtml(r.manager_comment)}</span></div>` : "";
+  const notReceipt = r.status === "failed" && r.extraction_error?.startsWith("Sorry")
+    ? `<div class="rt-flags"><span class="badge-dup" style="color:var(--danger);border-color:#e3b6ad;background:#f7e3df;">Not a receipt</span></div>` : "";
   return `
     <div class="r-table-row ${r.id === selectedId && role === "employee" ? "selected" : ""}" data-id="${r.id}">
       <span class="rt-id">#${r.id}</span>
       <span class="rt-merchant">${escapeHtml(r.merchant || "—")}
-        <span class="rt-file">${escapeHtml(r.original_name)}</span>${dup}${rejected}
+        <span class="rt-file">${escapeHtml(r.original_name)}</span>${dup}${rejected}${notReceipt}
       </span>
       <span class="rt-date">${r.purchase_date || "—"}</span>
       <span class="rt-total">${money(r.total_amount, r.currency)}</span>
@@ -113,7 +115,10 @@ function renderLists() {
 function previewHtml(r) {
   if (!r) return `<div class="preview-empty">Upload a receipt — or select one from the table below — to preview it here.</div>`;
   if (r.mime_type === "application/pdf") {
-    return `<a href="/api/receipts/${r.id}/file" target="_blank" class="pdf-link">📄 Open PDF — ${escapeHtml(r.original_name)}</a>`;
+    return `<div class="pdf-wrap">
+      <iframe class="pdf-embed" src="/api/receipts/${r.id}/file#toolbar=0&navpanes=0" title="Receipt ${r.id}"></iframe>
+      <a href="/api/receipts/${r.id}/file" target="_blank" class="pdf-open-link">Open full size ↗</a>
+    </div>`;
   }
   return `<img src="/api/receipts/${r.id}/file" alt="Receipt ${r.id}"
     onerror="this.outerHTML='<div class=&quot;preview-fallback&quot;>🧾 ${escapeHtml(r.original_name)}<br>Preview isn\\'t supported for this format in your browser — the file uploaded fine and will still be processed.</div>'">`;
@@ -157,9 +162,10 @@ function fieldsHtml(r, audit) {
       ${stageTrack(r.status)}
     </div>
     ${r.duplicate_of_id ? `<div class="banner warn">⚠ Possible duplicate of receipt #${r.duplicate_of_id} (same file, or same merchant / date / total).</div>` : ""}
-    ${r.extraction_error ? `<div class="banner error">Extraction failed: ${escapeHtml(r.extraction_error)}</div>` : ""}
+    ${r.extraction_error ? `<div class="banner error">${r.extraction_error.startsWith("Sorry") ? escapeHtml(r.extraction_error) : "Extraction failed: " + escapeHtml(r.extraction_error)}</div>` : ""}
     ${r.manager_comment ? `<div class="banner warn"><b>Manager comment:</b> ${escapeHtml(r.manager_comment)} — correct the fields below and resubmit.</div>` : ""}
-    ${["uploaded", "processing"].includes(r.status) ? `<div class="banner warn">Our AI is reading this receipt — fields will appear here in a few seconds.</div>` : ""}
+    ${r.status === "uploaded" ? `<div class="banner warn">Receipt uploaded — press <b>Submit receipt</b> under the preview to send it to our AI for extraction.</div>` : ""}
+    ${r.status === "processing" ? `<div class="banner warn">Our AI is reading this receipt — fields will appear here in a few seconds.</div>` : ""}
     <form id="edit-form" onsubmit="return false;">
       <div class="fields-grid">
         ${field("Merchant", "merchant", r.merchant)}
@@ -188,12 +194,15 @@ async function selectReceipt(id, { scroll = false } = {}) {
   renderLists();
   if (id === null) {
     $("#preview-frame").innerHTML = previewHtml(null);
+    $("#preview-actions").hidden = true;
     $("#fields-card").hidden = true;
     return;
   }
   const r = await api(`/api/receipts/${id}`);
   const audit = await api(`/api/receipts/${id}/audit`);
   $("#preview-frame").innerHTML = previewHtml(r);
+  $("#preview-actions").hidden = !["uploaded", "failed"].includes(r.status);
+  $("#extract-status").textContent = "";
   $("#fields-card").hidden = false;
   $("#fields-card").innerHTML = fieldsHtml(r, audit);
   wireFields(r);
@@ -240,7 +249,7 @@ function wireFields(r) {
       await api(`/api/receipts/${r.id}`, { method: "PATCH", body: JSON.stringify(collectForm()) });
     await api(`/api/receipts/${r.id}/submit`, { method: "POST" });
   }));
-  $("#retry-btn")?.addEventListener("click", act(() => api(`/api/receipts/${r.id}/retry`, { method: "POST" })));
+  $("#retry-btn")?.addEventListener("click", act(() => api(`/api/receipts/${r.id}/extract`, { method: "POST" })));
 }
 
 function wireRowDeletes() {
@@ -378,6 +387,30 @@ document.addEventListener("click", (e) => {
 $("#role-employee").onclick = () => setRole("employee");
 $("#role-manager").onclick = () => setRole("manager");
 
+$("#extract-btn").onclick = async () => {
+  if (!selectedId) return;
+  const id = selectedId;
+  const status = $("#extract-status");
+  status.className = "upload-status";
+  status.textContent = "Sending to Claude…";
+  $("#extract-btn").disabled = true;
+  try {
+    await api(`/api/receipts/${id}/extract`, { method: "POST" });
+    // Follow the extraction through: uploaded -> processing -> review/failed.
+    for (let i = 0; i < 45; i++) {
+      await refresh();
+      const r = receipts.find((x) => x.id === id);
+      if (!r || !["uploaded", "processing"].includes(r.status)) break;
+      await new Promise((res) => setTimeout(res, 2000));
+    }
+    if (selectedId === id) await selectReceipt(id);
+  } catch (e) {
+    status.textContent = e.message;
+    status.classList.add("err");
+  }
+  $("#extract-btn").disabled = false;
+};
+
 const dropZone = $("#drop-zone");
 dropZone.addEventListener("click", (e) => { if (!e.target.closest("button")) $("#file-input").click(); });
 $("#upload-btn").onclick = (e) => { e.stopPropagation(); $("#file-input").click(); };
@@ -405,8 +438,9 @@ async function init() {
   await refresh();
   if (role === "employee" && receipts.length) await selectReceipt(receipts[0].id);
   // Poll while anything is processing so stages advance live in the table.
+  // ("uploaded" is now an idle state — it waits for the employee to submit.)
   setInterval(async () => {
-    if (!receipts.some((r) => ["uploaded", "processing"].includes(r.status))) return;
+    if (!receipts.some((r) => r.status === "processing")) return;
     const before = Object.fromEntries(receipts.map((r) => [r.id, r.status]));
     await refresh();
     const sel = receipts.find((r) => r.id === selectedId);

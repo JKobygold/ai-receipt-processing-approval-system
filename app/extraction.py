@@ -24,6 +24,14 @@ FIELDS = ["merchant", "purchase_date", "total_amount", "currency", "tax_amount",
 RECEIPT_SCHEMA = {
     "type": "object",
     "properties": {
+        "is_receipt": {
+            "type": "boolean",
+            "description": "true only if the file is actually a receipt or invoice (a record of a purchase or payment)",
+        },
+        "not_receipt_reason": {
+            "type": ["string", "null"],
+            "description": "If not a receipt: a short description of what the file appears to be instead",
+        },
         "merchant": {"type": ["string", "null"]},
         "purchase_date": {"type": ["string", "null"], "description": "ISO date YYYY-MM-DD"},
         "total_amount": {"type": ["number", "null"]},
@@ -50,13 +58,17 @@ RECEIPT_SCHEMA = {
             "additionalProperties": False,
         },
     },
-    "required": FIELDS + ["confidence"],
+    "required": ["is_receipt", "not_receipt_reason"] + FIELDS + ["confidence"],
     "additionalProperties": False,
 }
 
-PROMPT = """Extract the data from this receipt.
+PROMPT = """Extract: Merchant name, Purchase date, Total amount, Currency, Tax, and Line items (if available) from this receipt.
 
 Rules:
+- FIRST decide whether this file is actually a receipt or invoice — a record of a purchase or
+  payment. If it is not (e.g. a random photo, screenshot, menu, letter, or blank image), set
+  is_receipt to false, describe what it appears to be in not_receipt_reason, and set every
+  data field to null. Do not invent receipt data for a file that is not a receipt.
 - purchase_date must be ISO format (YYYY-MM-DD). If ambiguous, prefer the most plausible reading.
 - currency is the ISO 4217 code (infer from symbols/locale if not printed).
 - total_amount is the grand total actually charged; tax_amount is total tax.
@@ -136,7 +148,14 @@ class MockExtractor:
     ITEMS = ["Coffee", "Notebook", "Groceries", "Ride fare", "Snacks", "Printer paper", "Lunch special"]
 
     def extract(self, file_path: Path, mime_type: str) -> dict:
-        h = hashlib.sha256(file_path.read_bytes()).digest()
+        raw = file_path.read_bytes()
+        if b"NOTARECEIPT" in raw:  # test hook mirroring the live is_receipt check
+            return {
+                "is_receipt": False, "not_receipt_reason": "a test file marked as not a receipt",
+                "merchant": None, "purchase_date": None, "total_amount": None,
+                "currency": None, "tax_amount": None, "line_items": [], "confidence": {},
+            }
+        h = hashlib.sha256(raw).digest()
         merchant = self.MERCHANTS[h[0] % len(self.MERCHANTS)]
         day = (h[1] % 28) + 1
         month = (h[2] % 12) + 1
@@ -153,6 +172,8 @@ class MockExtractor:
             })
         tax = round(subtotal * 0.08, 2)
         return {
+            "is_receipt": True,
+            "not_receipt_reason": None,
             "merchant": merchant,
             "purchase_date": f"2026-{month:02d}-{day:02d}",
             "total_amount": round(subtotal + tax, 2),

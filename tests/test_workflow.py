@@ -21,15 +21,22 @@ PNG = bytes.fromhex(
 )
 
 
-def upload(name=b"r.png", content=PNG):
-    return client.post("/api/receipts", files={"file": (name.decode(), content, "image/png")})
+def upload(name=b"r.png", content=PNG, extract=True):
+    res = client.post("/api/receipts", files={"file": (name.decode(), content, "image/png")})
+    if extract:
+        client.post(f"/api/receipts/{res.json()['id']}/extract")
+    return res
 
 
 def test_upload_extract_edit_submit_approve():
-    r = upload().json()
+    r = upload(extract=False).json()
     rid = r["id"]
 
-    # Background extraction already ran -> review, with data + confidence
+    # Upload alone does not start extraction — the employee submits explicitly
+    assert r["status"] == "uploaded"
+    assert client.post(f"/api/receipts/{rid}/extract").status_code == 200
+
+    # TestClient runs the background task synchronously -> review, with data + confidence
     r = client.get(f"/api/receipts/{rid}").json()
     assert r["status"] == "review"
     assert r["merchant"] and r["total_amount"] is not None
@@ -54,7 +61,7 @@ def test_upload_extract_edit_submit_approve():
 
     # Audit trail covers the whole lifecycle
     actions = [a["action"] for a in client.get(f"/api/receipts/{rid}/audit").json()]
-    for expected in ["uploaded", "extraction_completed", "edited", "submitted", "approved"]:
+    for expected in ["uploaded", "extraction_requested", "extraction_completed", "edited", "submitted", "approved"]:
         assert expected in actions
 
 
@@ -78,6 +85,16 @@ def test_duplicate_detection_same_file():
     b = upload(b"dup2.png", PNG + b"\x00dupbytes").json()["id"]
     r = client.get(f"/api/receipts/{b}").json()
     assert r["duplicate_of_id"] == a
+
+
+def test_not_a_receipt_is_flagged():
+    rid = upload(b"cat-photo.png", PNG + b"NOTARECEIPT").json()["id"]
+    r = client.get(f"/api/receipts/{rid}").json()
+    assert r["status"] == "failed"
+    assert r["extraction_error"].startswith("Sorry — this is not a receipt")
+    # Not-a-receipt files cannot be submitted for approval
+    assert client.post(f"/api/receipts/{rid}/submit").status_code == 409
+    assert "not_a_receipt" in [a["action"] for a in client.get(f"/api/receipts/{rid}/audit").json()]
 
 
 def test_rejects_unsupported_file_type():

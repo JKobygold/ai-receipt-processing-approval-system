@@ -113,6 +113,18 @@ def process_receipt(receipt_id: int):
             log_audit(conn, receipt_id, "system", "extraction_failed", str(e))
         return
 
+    if data.get("is_receipt") is False:
+        reason = data.get("not_receipt_reason") or "the file does not look like a receipt"
+        reason = reason[0].lower() + reason[1:] if reason else reason
+        with get_db() as conn:
+            conn.execute(
+                "UPDATE receipts SET status='failed', extraction_error=?, updated_at=? WHERE id=?",
+                (f"Sorry — this is not a receipt. It looks like {reason}. "
+                 "Please upload a photo or PDF of an actual purchase receipt.", utcnow(), receipt_id),
+            )
+            log_audit(conn, receipt_id, "system", "not_a_receipt", reason)
+        return
+
     with get_db() as conn:
         conn.execute(
             """UPDATE receipts SET status='review', merchant=?, purchase_date=?, total_amount=?,
@@ -164,7 +176,7 @@ def meta():
 
 
 @app.post("/api/receipts", status_code=201)
-async def upload_receipt(background: BackgroundTasks, file: UploadFile = File(...)):
+async def upload_receipt(file: UploadFile = File(...)):
     mime = file.content_type or ""
     if mime in ("", "application/octet-stream"):
         mime = EXT_MIME.get(Path(file.filename or "").suffix.lower(), mime)
@@ -190,7 +202,8 @@ async def upload_receipt(background: BackgroundTasks, file: UploadFile = File(..
         receipt_id = cur.lastrowid
         log_audit(conn, receipt_id, "employee", "uploaded", file.filename or stored)
 
-    background.add_task(process_receipt, receipt_id)
+    # Extraction is not started here — the employee reviews the preview and
+    # explicitly submits the receipt to the AI via POST /extract.
     with get_db() as conn:
         return row_to_receipt(conn, fetch_receipt(conn, receipt_id))
 
@@ -249,13 +262,14 @@ def update_receipt(receipt_id: int, body: ReceiptUpdate):
         return row_to_receipt(conn, fetch_receipt(conn, receipt_id))
 
 
-@app.post("/api/receipts/{receipt_id}/retry")
-def retry_extraction(receipt_id: int, background: BackgroundTasks):
+@app.post("/api/receipts/{receipt_id}/extract")
+def extract_receipt(receipt_id: int, background: BackgroundTasks):
+    """Send the receipt to the AI extractor — first run or re-run."""
     with get_db() as conn:
         row = fetch_receipt(conn, receipt_id)
-        if row["status"] not in ("failed", "review"):
-            raise HTTPException(409, f"Cannot retry a receipt in status '{row['status']}'")
-        log_audit(conn, receipt_id, "employee", "retry_requested")
+        if row["status"] not in ("uploaded", "failed", "review"):
+            raise HTTPException(409, f"Cannot extract a receipt in status '{row['status']}'")
+        log_audit(conn, receipt_id, "employee", "extraction_requested")
     background.add_task(process_receipt, receipt_id)
     return {"ok": True}
 
