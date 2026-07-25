@@ -1117,3 +1117,31 @@ Claude Code (Fable 5) fixed the reported "can't add another receipt without refr
 ### Known Risk / Follow-Up
 
 - None. Frontend-only styling/affordance change; no workflow logic touched.
+
+## Latest Edit: Varied Random-Receipt Pool + Local Real-Photo Pool
+
+Claude Code (Fable 5) addressed "every random receipt looks the same".
+
+### What Changed
+
+- Root cause: the 12 tracked synthetic samples all used one visual template, so uniform-random picks looked identical.
+- Added `scripts/generate_sample_receipts.py` — seeded generator producing 20 synthetic receipts across five distinct templates (thermal strip, cafe, restaurant, invoice, fuel) with varied merchants, currencies (USD/EUR/GBP/CAD), tax rates, and correct arithmetic; replaced the 12 look-alikes.
+- The random button now merges two pools: tracked `manifest.json` (synthetics) plus optional gitignored `local-manifest.json` (30 real-photo web images, watermarked stock — kept out of the public repo/live deploy for licensing; local dev only).
+- Added a no-immediate-repeat guard to the random pick.
+
+### Files Modified
+
+- `scripts/generate_sample_receipts.py` (new)
+- `static/sample-receipts/` (12 -> 20 synthetics + manifest)
+- `static/app.js`
+- `.gitignore`
+- `CODEX_HANDOFF.md`
+
+### Verification
+
+- `node --check` clean; test suite `8 passed`; local server serves both manifests (20 + 30).
+- Deployed to Railway; live pool = the 20 varied synthetics.
+
+### Known Risk / Follow-Up
+
+- The scraped real-photo pool is local-only by design. If it should ship publicly, replace with license-cleared photos first.

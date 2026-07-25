@@ -1125,13 +1125,25 @@ document.querySelectorAll("[data-login-role]").forEach((btn) => {
 // Try random receipt: pick one of the sample images in /sample-receipts
 // (local-only folder, see .gitignore) and STAGE it in the preview. It only
 // lands in "My receipts" when the employee presses Submit receipt.
+let lastRandomPick = null;
 $("#random-receipt-btn").onclick = async () => {
   const status = $("#upload-status");
   status.className = "upload-status";
   status.textContent = "Picking a random receipt…";
   try {
-    const manifest = await (await fetch("/sample-receipts/manifest.json")).json();
-    const name = manifest[Math.floor(Math.random() * manifest.length)];
+    // Pool = tracked synthetic manifest + optional local-manifest.json of
+    // real-photo samples (kept out of the public repo; see .gitignore).
+    const pools = await Promise.all([
+      fetch("/sample-receipts/manifest.json").then((r) => (r.ok ? r.json() : [])).catch(() => []),
+      fetch("/sample-receipts/local-manifest.json").then((r) => (r.ok ? r.json() : [])).catch(() => []),
+    ]);
+    const pool = [...new Set(pools.flat())];
+    if (!pool.length) throw new Error("no samples found");
+    let name;
+    do {
+      name = pool[Math.floor(Math.random() * pool.length)];
+    } while (pool.length > 1 && name === lastRandomPick);  // never the same twice in a row
+    lastRandomPick = name;
     const blob = await (await fetch(`/sample-receipts/${name}`)).blob();
     stageFile(new File([blob], `random-${name}`, { type: blob.type }));
   } catch (e) {
