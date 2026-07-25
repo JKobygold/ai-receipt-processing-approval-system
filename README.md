@@ -7,7 +7,7 @@ A lightweight web app for expense receipts: employees upload a receipt (image or
 ## Features
 
 **Core**
-- Upload receipts (PNG/JPEG/GIF/WebP/PDF, 15 MB max), with live processing status in the UI
+- Upload receipts via drag-and-drop or file picker (PNG/JPEG/HEIC/GIF/WebP/PDF, 15 MB max), with a live per-receipt stage tracker (Uploaded → Processing → Review → Submitted) in the UI; HEIC is transcoded to JPEG before AI extraction
 - AI extraction of merchant, purchase date, total, currency, tax, and line items
 - Employee review screen with side-by-side receipt preview and fully editable fields/line items
 - Manager queue with approve / reject (comment **required** on rejection)

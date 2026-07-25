@@ -77,8 +77,27 @@ class ClaudeExtractor:
         self.client = anthropic.Anthropic()
         self.model = os.environ.get("RECEIPT_MODEL", "claude-opus-4-8")
 
+    @staticmethod
+    def _heic_to_jpeg(file_path: Path) -> bytes:
+        """Claude vision doesn't accept HEIC/HEIF — transcode to JPEG first."""
+        try:
+            import io
+            from pillow_heif import register_heif_opener
+            from PIL import Image
+        except ImportError as e:
+            raise ExtractionError(
+                "HEIC support requires the pillow-heif package (pip install pillow-heif)."
+            ) from e
+        register_heif_opener()
+        buf = io.BytesIO()
+        Image.open(file_path).convert("RGB").save(buf, format="JPEG", quality=90)
+        return buf.getvalue()
+
     def extract(self, file_path: Path, mime_type: str) -> dict:
-        data = base64.standard_b64encode(file_path.read_bytes()).decode("utf-8")
+        raw = file_path.read_bytes()
+        if mime_type in ("image/heic", "image/heif"):
+            raw, mime_type = self._heic_to_jpeg(file_path), "image/jpeg"
+        data = base64.standard_b64encode(raw).decode("utf-8")
         if mime_type == "application/pdf":
             file_block = {"type": "document", "source": {"type": "base64", "media_type": mime_type, "data": data}}
         else:

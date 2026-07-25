@@ -22,7 +22,12 @@ from pydantic import BaseModel
 from .db import UPLOAD_DIR, get_db, log_audit, run_migrations, utcnow
 from .extraction import ExtractionError, get_extractor
 
-ALLOWED_MIME = {"image/png", "image/jpeg", "image/gif", "image/webp", "application/pdf"}
+ALLOWED_MIME = {"image/png", "image/jpeg", "image/gif", "image/webp", "image/heic", "image/heif", "application/pdf"}
+# Browsers often send no MIME type for HEIC files — fall back to the extension.
+EXT_MIME = {
+    ".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".gif": "image/gif",
+    ".webp": "image/webp", ".heic": "image/heic", ".heif": "image/heif", ".pdf": "application/pdf",
+}
 MAX_UPLOAD_BYTES = 15 * 1024 * 1024
 
 app = FastAPI(title="Receipt Approval System")
@@ -146,6 +151,8 @@ def meta():
 @app.post("/api/receipts", status_code=201)
 async def upload_receipt(background: BackgroundTasks, file: UploadFile = File(...)):
     mime = file.content_type or ""
+    if mime in ("", "application/octet-stream"):
+        mime = EXT_MIME.get(Path(file.filename or "").suffix.lower(), mime)
     if mime not in ALLOWED_MIME:
         raise HTTPException(400, f"Unsupported file type: {mime}. Upload an image or PDF.")
     content = await file.read()

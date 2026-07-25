@@ -1,8 +1,9 @@
-/* Receipt Approval SPA — vanilla JS, no build step. */
+/* Rajant Receipt Portal SPA — vanilla JS, no build step. */
 
 let role = "employee";
 let receipts = [];
-let openId = null;
+let selectedId = null;   // employee: receipt shown in preview + fields panel
+let modalId = null;      // manager: receipt open in the approval modal
 
 const $ = (sel) => document.querySelector(sel);
 
@@ -10,6 +11,8 @@ const STATUS_LABELS = {
   uploaded: "Uploaded", processing: "Processing…", failed: "Failed",
   review: "Needs review", submitted: "Submitted", approved: "Approved", rejected: "Rejected",
 };
+const STAGES = ["uploaded", "processing", "review", "submitted"];
+const ACCEPTED_EXT = /\.(png|jpe?g|heic|heif|pdf)$/i;
 
 async function api(path, opts = {}) {
   const res = await fetch(path, {
@@ -29,6 +32,10 @@ function money(v, currency) {
   return `${Number(v).toFixed(2)} ${currency || ""}`.trim();
 }
 
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+}
+
 function confBadge(conf, field) {
   if (!conf || conf[field] === undefined) return "";
   const c = conf[field];
@@ -36,40 +43,83 @@ function confBadge(conf, field) {
   return `<span class="conf ${cls}" title="AI confidence">${Math.round(c * 100)}%</span>`;
 }
 
-// ---------- rendering ----------
+// Flag a field yellow when the extractor wasn't confident about it.
+function lowConf(conf, field) {
+  return conf && conf[field] !== undefined && conf[field] < 0.9;
+}
 
-function receiptCard(r) {
-  const dup = r.duplicate_of_id ? `<span class="badge badge-warn">⚠ possible duplicate of #${r.duplicate_of_id}</span>` : "";
+// ---------- stage tracker ----------
+
+function stageTrack(status) {
+  if (status === "failed") {
+    return `<span class="stage-track"><span class="outcome outcome-failed">✕ Failed — retry</span></span>`;
+  }
+  const past = ["approved", "rejected"].includes(status) ? STAGES.length : STAGES.indexOf(status);
+  const pills = STAGES.map((s, i) => {
+    const cls = i < past ? "done" : i === past ? "current" : "";
+    return `<span class="stage s-${s} ${cls}">${STATUS_LABELS[s].replace("…", "")}</span>`;
+  }).join(`<i class="stage-arrow">›</i>`);
+  const outcome = status === "approved" ? `<span class="outcome outcome-approved">✓ Approved</span>`
+    : status === "rejected" ? `<span class="outcome outcome-rejected">✕ Rejected</span>` : "";
+  return `<span class="stage-track">${pills}${outcome}</span>`;
+}
+
+// ---------- receipts table ----------
+
+function tableRow(r) {
+  const dup = r.duplicate_of_id ? `<div class="rt-flags"><span class="badge-dup">⚠ possible duplicate of #${r.duplicate_of_id}</span></div>` : "";
+  const rejected = r.status === "rejected" && r.manager_comment
+    ? `<div class="rt-flags"><span class="badge-dup" style="color:var(--danger);border-color:#e3b6ad;background:#f7e3df;">Manager: ${escapeHtml(r.manager_comment)}</span></div>` : "";
   return `
-    <div class="card" data-id="${r.id}">
-      <div class="card-top">
-        <strong>#${r.id} ${r.merchant || r.original_name}</strong>
-        <span class="badge status-${r.status}">${STATUS_LABELS[r.status]}</span>
-      </div>
-      <div class="card-sub">
-        <span>${r.purchase_date || ""}</span>
-        <span>${money(r.total_amount, r.currency)}</span>
-      </div>
-      ${dup}
-      ${r.status === "rejected" && r.manager_comment ? `<div class="reject-note">Rejected: ${escapeHtml(r.manager_comment)}</div>` : ""}
+    <div class="r-table-row ${r.id === selectedId && role === "employee" ? "selected" : ""}" data-id="${r.id}">
+      <span class="rt-id">#${r.id}</span>
+      <span class="rt-merchant">${escapeHtml(r.merchant || "—")}
+        <span class="rt-file">${escapeHtml(r.original_name)}</span>${dup}${rejected}
+      </span>
+      <span class="rt-date">${r.purchase_date || "—"}</span>
+      <span class="rt-total">${money(r.total_amount, r.currency)}</span>
+      <span class="rt-tax">${r.tax_amount != null ? Number(r.tax_amount).toFixed(2) : "—"}</span>
+      <span class="rt-stage">${stageTrack(r.status)}</span>
     </div>`;
 }
 
-function escapeHtml(s) {
-  return String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+function receiptTable(rows, emptyText) {
+  if (!rows.length) return `<p class="r-empty">${emptyText}</p>`;
+  return `
+    <div class="r-table-header">
+      <span class="rt-id">#</span>
+      <span class="rt-merchant">Merchant / file</span>
+      <span class="rt-date">Date</span>
+      <span class="rt-total" style="color:var(--gold-100);font-family:inherit;">Total</span>
+      <span class="rt-tax">Tax</span>
+      <span class="rt-stage" style="justify-content:flex-end;">Stage</span>
+    </div>
+    ${rows.map(tableRow).join("")}`;
 }
 
 function renderLists() {
   if (role === "employee") {
-    $("#employee-list").innerHTML =
-      receipts.map(receiptCard).join("") || `<p class="empty">No receipts yet — upload one to get started.</p>`;
+    $("#employee-table").innerHTML = receiptTable(receipts, "No receipts yet — upload one to get started.");
   } else {
     const pending = receipts.filter((r) => r.status === "submitted");
     const done = receipts.filter((r) => ["approved", "rejected"].includes(r.status));
-    $("#manager-list").innerHTML = pending.map(receiptCard).join("") || `<p class="empty">Nothing awaiting approval.</p>`;
-    $("#manager-done-list").innerHTML = done.map(receiptCard).join("") || `<p class="empty">No reviewed receipts yet.</p>`;
+    $("#manager-table").innerHTML = receiptTable(pending, "Nothing awaiting approval.");
+    $("#manager-done-table").innerHTML = receiptTable(done, "No reviewed receipts yet.");
   }
 }
+
+// ---------- preview frame ----------
+
+function previewHtml(r) {
+  if (!r) return `<div class="preview-empty">Upload a receipt — or select one from the table below — to preview it here.</div>`;
+  if (r.mime_type === "application/pdf") {
+    return `<a href="/api/receipts/${r.id}/file" target="_blank" class="pdf-link">📄 Open PDF — ${escapeHtml(r.original_name)}</a>`;
+  }
+  return `<img src="/api/receipts/${r.id}/file" alt="Receipt ${r.id}"
+    onerror="this.outerHTML='<div class=&quot;preview-fallback&quot;>🧾 ${escapeHtml(r.original_name)}<br>Preview isn\\'t supported for this format in your browser — the file uploaded fine and will still be processed.</div>'">`;
+}
+
+// ---------- extracted fields panel (employee) ----------
 
 function lineItemRow(li = {}, editable) {
   const d = editable ? "" : "disabled";
@@ -79,71 +129,75 @@ function lineItemRow(li = {}, editable) {
       <td><input class="li-qty" type="number" step="any" value="${li.quantity ?? ""}" ${d}></td>
       <td><input class="li-unit" type="number" step="any" value="${li.unit_price ?? ""}" ${d}></td>
       <td><input class="li-amt" type="number" step="any" value="${li.amount ?? ""}" ${d}></td>
-      ${editable ? `<td><button class="li-del ghost">✕</button></td>` : ""}
+      ${editable ? `<td style="width:30px;"><button class="li-del btn btn-ghost" title="Remove line">✕</button></td>` : ""}
     </tr>`;
 }
 
-async function openDetail(id) {
-  openId = id;
-  const r = await api(`/api/receipts/${id}`);
-  const audit = await api(`/api/receipts/${id}/audit`);
-  const editable = role === "employee" && ["review", "failed", "rejected"].includes(r.status);
+function fieldsHtml(r, audit) {
+  const editable = ["review", "failed", "rejected"].includes(r.status);
   const conf = r.confidence;
   const d = editable ? "" : "disabled";
 
   const field = (label, name, value, type = "text") => `
-    <label>${label} ${confBadge(conf, name)}
-      <input name="${name}" type="${type}" step="any" value="${value ?? ""}" ${d}>
-    </label>`;
+    <div class="field ${lowConf(conf, name) ? "flagged" : ""}">
+      <label>${label} ${confBadge(conf, name)}</label>
+      <input class="field-input" name="${name}" type="${type}" step="any" value="${value ?? ""}" ${d}>
+    </div>`;
 
   let actions = "";
-  if (role === "employee") {
-    if (editable) actions += `<button id="save-btn">Save changes</button>`;
-    if (["review", "rejected"].includes(r.status)) actions += `<button id="submit-btn" class="primary">Submit for approval</button>`;
-    if (["failed", "review"].includes(r.status)) actions += `<button id="retry-btn" class="ghost">Re-run extraction</button>`;
-  } else if (r.status === "submitted") {
-    actions = `
-      <button id="approve-btn" class="primary">Approve</button>
-      <button id="reject-btn" class="danger">Reject…</button>`;
-  }
+  if (editable) actions += `<button id="save-btn" class="btn">Save changes</button>`;
+  if (["review", "rejected"].includes(r.status)) actions += `<button id="submit-btn" class="btn btn-primary">Submit for approval</button>`;
+  if (["failed", "review"].includes(r.status)) actions += `<button id="retry-btn" class="btn btn-ghost">↻ Re-run extraction</button>`;
 
-  $("#detail-panel").innerHTML = `
-    <div class="detail-head">
-      <h2>Receipt #${r.id} <span class="badge status-${r.status}">${STATUS_LABELS[r.status]}</span></h2>
-      <button id="close-btn" class="ghost">✕</button>
+  return `
+    <div class="fields-head">
+      <span class="fields-title">Extracted details — receipt #${r.id}</span>
+      <span class="status-chip status-${r.status}">${STATUS_LABELS[r.status]}</span>
+      <span class="fields-spacer"></span>
+      ${stageTrack(r.status)}
     </div>
-    ${r.duplicate_of_id ? `<div class="banner warn">⚠ Possible duplicate of receipt #${r.duplicate_of_id} (same file or same merchant/date/total).</div>` : ""}
+    ${r.duplicate_of_id ? `<div class="banner warn">⚠ Possible duplicate of receipt #${r.duplicate_of_id} (same file, or same merchant / date / total).</div>` : ""}
     ${r.extraction_error ? `<div class="banner error">Extraction failed: ${escapeHtml(r.extraction_error)}</div>` : ""}
-    ${r.manager_comment ? `<div class="banner warn">Manager comment: ${escapeHtml(r.manager_comment)}</div>` : ""}
-    <div class="detail-grid">
-      <div class="preview">
-        ${r.mime_type === "application/pdf"
-          ? `<a href="/api/receipts/${r.id}/file" target="_blank" class="pdf-link">📄 Open PDF (${escapeHtml(r.original_name)})</a>`
-          : `<img src="/api/receipts/${r.id}/file" alt="receipt">`}
-      </div>
-      <form id="edit-form">
+    ${r.manager_comment ? `<div class="banner warn"><b>Manager comment:</b> ${escapeHtml(r.manager_comment)} — correct the fields below and resubmit.</div>` : ""}
+    ${["uploaded", "processing"].includes(r.status) ? `<div class="banner warn">Our AI is reading this receipt — fields will appear here in a few seconds.</div>` : ""}
+    <form id="edit-form" onsubmit="return false;">
+      <div class="fields-grid">
         ${field("Merchant", "merchant", r.merchant)}
         ${field("Purchase date", "purchase_date", r.purchase_date, "date")}
         ${field("Total amount", "total_amount", r.total_amount, "number")}
         ${field("Currency", "currency", r.currency)}
         ${field("Tax", "tax_amount", r.tax_amount, "number")}
-        <div class="li-block">
-          <div class="li-head">Line items ${confBadge(conf, "line_items")}
-            ${editable ? `<button type="button" id="li-add" class="ghost">+ add</button>` : ""}</div>
-          <table id="li-table">
-            <thead><tr><th>Description</th><th>Qty</th><th>Unit</th><th>Amount</th>${editable ? "<th></th>" : ""}</tr></thead>
-            <tbody>${(r.line_items || []).map((li) => lineItemRow(li, editable)).join("")}</tbody>
-          </table>
-        </div>
-      </form>
-    </div>
+      </div>
+      <div class="li-block">
+        <div class="li-head">Line items ${confBadge(conf, "line_items")}
+          ${editable ? `<button type="button" id="li-add" class="btn btn-ghost">+ add line</button>` : ""}</div>
+        <table class="li-table" id="li-table">
+          <thead><tr><th>Description</th><th>Qty</th><th>Unit</th><th>Amount</th>${editable ? "<th></th>" : ""}</tr></thead>
+          <tbody>${(r.line_items || []).map((li) => lineItemRow(li, editable)).join("")}</tbody>
+        </table>
+      </div>
+    </form>
     <div class="actions">${actions}<span id="detail-msg"></span></div>
     <details class="audit"><summary>Audit log</summary>
       <ul>${audit.map((a) => `<li><span>${a.created_at}</span> <b>${a.actor}</b> ${a.action}${a.detail ? " — " + escapeHtml(a.detail) : ""}</li>`).join("")}</ul>
     </details>`;
+}
 
-  $("#detail-overlay").hidden = false;
-  wireDetail(r, editable);
+async function selectReceipt(id, { scroll = false } = {}) {
+  selectedId = id;
+  renderLists();
+  if (id === null) {
+    $("#preview-frame").innerHTML = previewHtml(null);
+    $("#fields-card").hidden = true;
+    return;
+  }
+  const r = await api(`/api/receipts/${id}`);
+  const audit = await api(`/api/receipts/${id}/audit`);
+  $("#preview-frame").innerHTML = previewHtml(r);
+  $("#fields-card").hidden = false;
+  $("#fields-card").innerHTML = fieldsHtml(r, audit);
+  wireFields(r);
+  if (scroll) $("#fields-card").scrollIntoView({ behavior: "smooth", block: "nearest" });
 }
 
 function collectForm() {
@@ -166,41 +220,130 @@ function collectForm() {
   };
 }
 
-function wireDetail(r, editable) {
-  const msg = (t, isErr) => { const el = $("#detail-msg"); el.textContent = t; el.className = isErr ? "err" : "ok"; };
-  const act = (fn) => async () => {
-    try { await fn(); await refresh(); await openDetail(r.id); } catch (e) { msg(e.message, true); }
+function wireFields(r) {
+  const msg = (t, isErr) => { const el = $("#detail-msg"); el.textContent = t; el.className = isErr ? "msg-err" : "msg-ok"; };
+  const act = (fn, okText) => async () => {
+    try { await fn(); await refresh(); await selectReceipt(r.id); if (okText) $("#detail-msg") && msg(okText); }
+    catch (e) { msg(e.message, true); }
   };
 
-  $("#close-btn").onclick = () => { $("#detail-overlay").hidden = true; openId = null; };
-  if (editable) {
-    $("#li-add")?.addEventListener("click", () => {
-      $("#li-table tbody").insertAdjacentHTML("beforeend", lineItemRow({}, true));
-      wireRowDeletes();
-    });
+  $("#li-add")?.addEventListener("click", () => {
+    $("#li-table tbody").insertAdjacentHTML("beforeend", lineItemRow({}, true));
     wireRowDeletes();
-  }
-  $("#save-btn")?.addEventListener("click", act(() => api(`/api/receipts/${r.id}`, { method: "PATCH", body: JSON.stringify(collectForm()) })));
+  });
+  wireRowDeletes();
+
+  $("#save-btn")?.addEventListener("click", act(() =>
+    api(`/api/receipts/${r.id}`, { method: "PATCH", body: JSON.stringify(collectForm()) }), "Saved."));
   $("#submit-btn")?.addEventListener("click", act(async () => {
-    if (editable) await api(`/api/receipts/${r.id}`, { method: "PATCH", body: JSON.stringify(collectForm()) });
+    if (["review", "failed", "rejected"].includes(r.status))
+      await api(`/api/receipts/${r.id}`, { method: "PATCH", body: JSON.stringify(collectForm()) });
     await api(`/api/receipts/${r.id}/submit`, { method: "POST" });
   }));
   $("#retry-btn")?.addEventListener("click", act(() => api(`/api/receipts/${r.id}/retry`, { method: "POST" })));
-  $("#approve-btn")?.addEventListener("click", act(() => api(`/api/receipts/${r.id}/approve`, { method: "POST" })));
-  $("#reject-btn")?.addEventListener("click", async () => {
-    const comment = prompt("Rejection comment (required):");
-    if (comment === null) return;
-    try {
-      await api(`/api/receipts/${r.id}/reject`, { method: "POST", body: JSON.stringify({ comment }) });
-      await refresh(); await openDetail(r.id);
-    } catch (e) { msg(e.message, true); }
-  });
 }
 
 function wireRowDeletes() {
   $("#li-table tbody").querySelectorAll(".li-del").forEach((b) => {
     b.onclick = (e) => { e.preventDefault(); b.closest("tr").remove(); };
   });
+}
+
+// ---------- manager approval modal ----------
+
+async function openModal(id) {
+  modalId = id;
+  const r = await api(`/api/receipts/${id}`);
+  const audit = await api(`/api/receipts/${id}/audit`);
+  const conf = r.confidence;
+
+  const ro = (label, name, value) => `
+    <div class="field ${lowConf(conf, name) ? "flagged" : ""}">
+      <label>${label} ${confBadge(conf, name)}</label>
+      <input class="field-input" value="${value ?? ""}" disabled>
+    </div>`;
+
+  const actions = r.status === "submitted" ? `
+    <button id="approve-btn" class="btn btn-primary">✓ Approve</button>
+    <span class="reject-row">
+      <input id="reject-comment" class="reject-input" placeholder="Rejection comment (required)…">
+      <button id="reject-btn" class="btn btn-danger">Reject</button>
+    </span>` : "";
+
+  $("#detail-panel").innerHTML = `
+    <div class="modal-head">
+      <span class="modal-title">Receipt #${r.id} — ${escapeHtml(r.merchant || r.original_name)}</span>
+      <span class="status-chip status-${r.status}">${STATUS_LABELS[r.status]}</span>
+      <button id="modal-close" class="modal-close" title="Close">✕</button>
+    </div>
+    ${stageTrack(r.status)}
+    ${r.duplicate_of_id ? `<div class="banner warn" style="margin-top:10px;">⚠ Possible duplicate of receipt #${r.duplicate_of_id}.</div>` : ""}
+    ${r.manager_comment ? `<div class="banner warn" style="margin-top:10px;"><b>Comment:</b> ${escapeHtml(r.manager_comment)}</div>` : ""}
+    <div class="modal-grid">
+      <div class="preview-frame">${previewHtml(r)}</div>
+      <div>
+        <div class="fields-grid" style="grid-template-columns:repeat(2,1fr);">
+          ${ro("Merchant", "merchant", r.merchant)}
+          ${ro("Purchase date", "purchase_date", r.purchase_date)}
+          ${ro("Total amount", "total_amount", r.total_amount)}
+          ${ro("Currency", "currency", r.currency)}
+          ${ro("Tax", "tax_amount", r.tax_amount)}
+        </div>
+        <div class="li-block">
+          <div class="li-head">Line items ${confBadge(conf, "line_items")}</div>
+          <table class="li-table"><thead><tr><th>Description</th><th>Qty</th><th>Unit</th><th>Amount</th></tr></thead>
+            <tbody>${(r.line_items || []).map((li) => lineItemRow(li, false)).join("")}</tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+    <div class="actions">${actions}<span id="modal-msg"></span></div>
+    <details class="audit"><summary>Audit log</summary>
+      <ul>${audit.map((a) => `<li><span>${a.created_at}</span> <b>${a.actor}</b> ${a.action}${a.detail ? " — " + escapeHtml(a.detail) : ""}</li>`).join("")}</ul>
+    </details>`;
+
+  $("#detail-overlay").hidden = false;
+
+  const msg = (t, isErr) => { const el = $("#modal-msg"); el.textContent = t; el.className = isErr ? "msg-err" : "msg-ok"; };
+  $("#modal-close").onclick = closeModal;
+  $("#approve-btn")?.addEventListener("click", async () => {
+    try { await api(`/api/receipts/${r.id}/approve`, { method: "POST" }); await refresh(); await openModal(r.id); }
+    catch (e) { msg(e.message, true); }
+  });
+  $("#reject-btn")?.addEventListener("click", async () => {
+    const comment = $("#reject-comment").value;
+    try { await api(`/api/receipts/${r.id}/reject`, { method: "POST", body: JSON.stringify({ comment }) }); await refresh(); await openModal(r.id); }
+    catch (e) { msg(e.message, true); }
+  });
+}
+
+function closeModal() {
+  $("#detail-overlay").hidden = true;
+  modalId = null;
+}
+
+// ---------- upload ----------
+
+async function uploadFile(file) {
+  const status = $("#upload-status");
+  status.className = "upload-status";
+  if (!ACCEPTED_EXT.test(file.name || "")) {
+    status.textContent = "Unsupported file — upload a PDF, PNG, JPEG or HEIC.";
+    status.classList.add("err");
+    return;
+  }
+  status.textContent = `Uploading ${file.name}…`;
+  const fd = new FormData();
+  fd.append("file", file);
+  try {
+    const r = await api("/api/receipts", { method: "POST", body: fd });
+    status.textContent = "";
+    await refresh();
+    await selectReceipt(r.id, { scroll: true });
+  } catch (err) {
+    status.textContent = err.message;
+    status.classList.add("err");
+  }
 }
 
 // ---------- top-level wiring ----------
@@ -214,52 +357,62 @@ function setRole(newRole) {
   role = newRole;
   $("#role-employee").classList.toggle("active", role === "employee");
   $("#role-manager").classList.toggle("active", role === "manager");
+  $("#user-role").textContent = role === "employee" ? "Employee" : "Manager";
   $("#employee-view").hidden = role !== "employee";
   $("#manager-view").hidden = role !== "manager";
-  $("#detail-overlay").hidden = true;
+  $("#howto").hidden = role !== "employee";
+  closeModal();
   renderLists();
 }
 
 document.addEventListener("click", (e) => {
-  const card = e.target.closest(".card[data-id]");
-  if (card) openDetail(Number(card.dataset.id));
-  if (e.target.id === "detail-overlay") { $("#detail-overlay").hidden = true; openId = null; }
+  const row = e.target.closest(".r-table-row[data-id]");
+  if (row) {
+    const id = Number(row.dataset.id);
+    if (role === "employee") selectReceipt(id, { scroll: true });
+    else openModal(id);
+  }
+  if (e.target.id === "detail-overlay") closeModal();
 });
 
 $("#role-employee").onclick = () => setRole("employee");
 $("#role-manager").onclick = () => setRole("manager");
-$("#upload-btn").onclick = () => $("#file-input").click();
+
+const dropZone = $("#drop-zone");
+dropZone.addEventListener("click", (e) => { if (!e.target.closest("button")) $("#file-input").click(); });
+$("#upload-btn").onclick = (e) => { e.stopPropagation(); $("#file-input").click(); };
 $("#file-input").addEventListener("change", async (e) => {
-  const file = e.target.files[0];
-  if (!file) return;
-  const fd = new FormData();
-  fd.append("file", file);
-  $("#upload-status").textContent = "Uploading…";
-  try {
-    await api("/api/receipts", { method: "POST", body: fd });
-    $("#upload-status").textContent = "";
-    await refresh();
-  } catch (err) {
-    $("#upload-status").textContent = err.message;
-  }
+  if (e.target.files[0]) await uploadFile(e.target.files[0]);
   e.target.value = "";
+});
+["dragenter", "dragover"].forEach((ev) => dropZone.addEventListener(ev, (e) => {
+  e.preventDefault(); dropZone.classList.add("dragover");
+}));
+["dragleave", "drop"].forEach((ev) => dropZone.addEventListener(ev, (e) => {
+  e.preventDefault(); dropZone.classList.remove("dragover");
+}));
+dropZone.addEventListener("drop", async (e) => {
+  const file = e.dataTransfer.files?.[0];
+  if (file) await uploadFile(file);
 });
 
 async function init() {
   try {
     const meta = await api("/api/meta");
-    $("#provider-badge").textContent = meta.ai_provider === "claude" ? "AI: Claude" : "AI: mock";
+    $("#provider-badge").textContent = meta.ai_provider === "claude" ? "AI · Claude" : "AI · mock";
   } catch {}
+  if (location.hash === "#manager") setRole("manager");
   await refresh();
-  // Poll while anything is still processing so statuses advance live.
+  if (role === "employee" && receipts.length) await selectReceipt(receipts[0].id);
+  // Poll while anything is processing so stages advance live in the table.
   setInterval(async () => {
-    if (receipts.some((r) => ["uploaded", "processing"].includes(r.status))) {
-      await refresh();
-      if (openId) {
-        const open = receipts.find((r) => r.id === openId);
-        if (open && !["uploaded", "processing"].includes(open.status)) openDetail(openId);
-      }
-    }
+    if (!receipts.some((r) => ["uploaded", "processing"].includes(r.status))) return;
+    const before = Object.fromEntries(receipts.map((r) => [r.id, r.status]));
+    await refresh();
+    const sel = receipts.find((r) => r.id === selectedId);
+    if (sel && before[sel.id] !== sel.status) await selectReceipt(sel.id);
+    const open = receipts.find((r) => r.id === modalId);
+    if (open && before[open.id] !== open.status) await openModal(open.id);
   }, 2000);
 }
 

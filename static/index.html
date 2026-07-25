@@ -3,43 +3,114 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Receipt Approval</title>
+  <title>Rajant · Receipt Portal</title>
   <link rel="stylesheet" href="/styles.css">
 </head>
 <body>
-  <header>
-    <h1>🧾 Receipt Approval</h1>
-    <div class="header-right">
-      <span id="provider-badge" class="badge badge-muted"></span>
-      <div class="role-toggle">
-        <button id="role-employee" class="active">Employee</button>
-        <button id="role-manager">Manager</button>
+
+  <header class="topbar">
+    <div class="topbar-left">
+      <span class="topbar-title">Expense Receipts</span>
+      <span id="provider-badge" class="provider-badge"></span>
+    </div>
+    <div class="topbar-right">
+      <div class="user-profile">
+        <div class="user-avatar">JG</div>
+        <div class="user-info">
+          <span class="user-name">Jacob Gold</span>
+          <span id="user-role" class="user-role">Employee</span>
+        </div>
+        <div class="role-toggle">
+          <button id="role-employee" class="active">Employee</button>
+          <button id="role-manager">Manager</button>
+        </div>
       </div>
+      <img src="/logo-rajant.png" alt="Rajant" class="topbar-logo">
     </div>
   </header>
 
-  <main>
-    <section id="employee-view">
-      <div class="upload-card">
-        <input type="file" id="file-input" accept="image/png,image/jpeg,image/gif,image/webp,application/pdf" hidden>
-        <button id="upload-btn" class="primary">Upload receipt</button>
-        <span class="hint">Image or PDF, up to 15&nbsp;MB</span>
-        <span id="upload-status"></span>
+  <div class="page-body">
+
+    <!-- Employee instructions — compact 4-step strip -->
+    <section id="howto" class="dash-card howto">
+      <div class="howto-steps">
+        <div class="howto-step">
+          <span class="howto-num">1</span>
+          <div><b>Upload</b><p>Drag in a photo or PDF of your receipt. One receipt per file.</p></div>
+        </div>
+        <div class="howto-step">
+          <span class="howto-num">2</span>
+          <div><b>Wait for processing</b><p>Our AI reads the merchant, date, total, currency, tax, and line items. This usually takes a few seconds.</p></div>
+        </div>
+        <div class="howto-step">
+          <span class="howto-num">3</span>
+          <div><b>Review &amp; correct</b><p>Check every field before submitting — AI extraction isn't perfect, especially on crumpled or low-light photos. Fields flagged in yellow had low confidence and need your attention.</p></div>
+        </div>
+        <div class="howto-step">
+          <span class="howto-num">4</span>
+          <div><b>Submit</b><p>Your receipt goes to your manager for approval. You can't edit after submission.</p></div>
+        </div>
       </div>
-      <div id="employee-list" class="receipt-list"></div>
+      <details class="howto-tips">
+        <summary>Tips for better extraction · what happens if a receipt is rejected</summary>
+        <p><b>Tips:</b> shoot on a flat surface in good light, capture the full receipt including the total line, and avoid glare or shadows.</p>
+        <p><b>Rejections:</b> if your manager rejects a receipt, you'll see their comment on the item and can correct and resubmit it.</p>
+      </details>
+    </section>
+
+    <section id="employee-view">
+      <div class="work-grid">
+
+        <!-- Import block -->
+        <div class="dash-card">
+          <div class="card-header">Import file</div>
+          <div id="drop-zone" class="drop-zone">
+            <input type="file" id="file-input"
+                   accept="image/png,image/jpeg,image/heic,image/heif,application/pdf,.png,.jpg,.jpeg,.heic,.heif,.pdf" hidden>
+            <div class="drop-icon">🧾</div>
+            <div class="drop-title">Drag &amp; drop your receipt</div>
+            <div class="drop-sub">or</div>
+            <button id="upload-btn" class="btn btn-primary">Browse files</button>
+            <div class="drop-hint">PDF, PNG, JPEG or HEIC · one receipt per file · 15&nbsp;MB max</div>
+            <div id="upload-status" class="upload-status"></div>
+          </div>
+        </div>
+
+        <!-- Preview frame -->
+        <div class="dash-card">
+          <div class="card-header">Receipt preview</div>
+          <div id="preview-frame" class="preview-frame">
+            <div class="preview-empty">Upload a receipt — or select one from the table below — to preview it here.</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Extracted fields for the selected receipt -->
+      <section id="fields-card" class="dash-card" hidden></section>
+
+      <!-- Receipts table -->
+      <div class="dash-card table-card">
+        <div class="card-header">My receipts</div>
+        <div id="employee-table"></div>
+      </div>
     </section>
 
     <section id="manager-view" hidden>
-      <h2>Pending approvals</h2>
-      <div id="manager-list" class="receipt-list"></div>
-      <h2>Recently reviewed</h2>
-      <div id="manager-done-list" class="receipt-list"></div>
+      <div class="dash-card table-card">
+        <div class="card-header">Pending approvals</div>
+        <div id="manager-table"></div>
+      </div>
+      <div class="dash-card table-card">
+        <div class="card-header">Recently reviewed</div>
+        <div id="manager-done-table"></div>
+      </div>
     </section>
 
-    <div id="detail-overlay" hidden>
-      <div id="detail-panel"></div>
+    <div id="detail-overlay" class="modal-overlay" hidden>
+      <div id="detail-panel" class="modal-box"></div>
     </div>
-  </main>
+
+  </div>
 
   <script src="/app.js"></script>
 </body>
