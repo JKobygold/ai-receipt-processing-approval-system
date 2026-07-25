@@ -51,7 +51,10 @@ body {
     var(--cream);
   color: var(--ink);
   -webkit-font-smoothing: antialiased;
+  overflow-x: hidden;   /* never allow sideways panning of the page */
 }
+/* While any popup is open, freeze the page behind it (set by app.js) */
+body.modal-open { overflow: hidden; }
 
 #main-app[hidden], #login-screen[hidden] { display: none; }
 
@@ -817,6 +820,8 @@ body {
   position: fixed; inset: 0; background: rgba(17,32,58,0.55); backdrop-filter: blur(3px);
   z-index: 1000; display: flex; align-items: flex-start; justify-content: center;
   padding: 4vh 16px; overflow-y: auto;
+  /* mobile: no sideways panning, no scroll chaining to the page behind */
+  overflow-x: hidden; overscroll-behavior: contain; touch-action: pan-y;
 }
 .modal-box {
   background: var(--ivory); border-radius: 8px; box-shadow: 0 28px 70px rgba(8,16,30,0.45);

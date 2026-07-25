@@ -1322,3 +1322,28 @@ Claude Code (Fable 5) fixed two mobile-layout issues Jacob reported.
 ### Known Risk / Follow-Up
 
 - None. CSS-only, scoped to the ≤620px media query.
+
+## Latest Edit: Popups No Longer Drift on Mobile
+
+Claude Code (Fable 5) fixed Jacob's report that popups "move around left and right" on phones.
+
+### What Changed
+
+- Root cause: overlays never locked the page behind them, so on touch devices the background panned/scrolled under the modal (and sideways rubber-banding was possible), making popups feel like they drift.
+- CSS: `body { overflow-x: hidden }` globally; `.modal-overlay` gets `overflow-x: hidden; overscroll-behavior: contain; touch-action: pan-y`; new `body.modal-open { overflow: hidden }`.
+- JS: a MutationObserver watches the `hidden` attribute of all overlay containers (details/audit/message/camera share `#detail-overlay`, plus lazily-created `#conf-overlay` and `#claude-overlay`) and toggles `body.modal-open` — one mechanism instead of patching every open/close call site.
+
+### Files Modified
+
+- `static/styles.css`
+- `static/app.js`
+- `CODEX_HANDOFF.md`
+
+### Verification
+
+- CDP at 390px mobile emulation: lock off at rest; ON with details modal (body overflow hidden, overlay touch-action pan-y); released on close; also engages for the lazily-created confidence popup. Modal content itself measured within viewport (no horizontal overflow).
+- `node --check` clean; test suite `8 passed`; deployed to Railway.
+
+### Known Risk / Follow-Up
+
+- iOS Safari's most stubborn edge (focused-input scroll while locked) may still nudge vertically; full fix would be the position:fixed body dance — not worth it for the demo.

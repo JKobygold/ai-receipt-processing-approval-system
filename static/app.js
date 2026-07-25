@@ -1269,3 +1269,17 @@ async function init() {
 }
 
 init();
+
+// Freeze the page behind any open popup — on phones the background otherwise
+// pans/scrolls under the modal, making the popup feel like it drifts around.
+// Overlays are toggled via [hidden] from many code paths (details, audit,
+// message, camera, confidence, Claude-extraction), so watch the attribute
+// rather than patching every open/close call site.
+const OVERLAY_IDS = ["detail-overlay", "conf-overlay", "claude-overlay"];
+new MutationObserver(() => {
+  const anyOpen = OVERLAY_IDS.some((id) => {
+    const el = document.getElementById(id);
+    return el && !el.hidden;
+  });
+  document.body.classList.toggle("modal-open", anyOpen);
+}).observe(document.body, { subtree: true, attributes: true, attributeFilter: ["hidden"], childList: true });
