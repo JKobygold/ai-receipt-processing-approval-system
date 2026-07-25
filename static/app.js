@@ -343,7 +343,7 @@ function showPreviewMode(title = "Receipt preview") {
   $("#preview-frame").hidden = false;
 }
 
-function resetMissingReceipt(message = "That receipt is no longer available. Please choose the file again.") {
+function resetImportFlow(message = "") {
   selectedId = null;
   expandedId = null;
   clearStaged();
@@ -353,8 +353,14 @@ function resetMissingReceipt(message = "That receipt is no longer available. Ple
   const status = $("#upload-status");
   if (status) {
     status.textContent = message;
-    status.className = "upload-status err";
+    status.className = "upload-status";
   }
+}
+
+function resetMissingReceipt(message = "That receipt is no longer available. Please choose the file again.") {
+  resetImportFlow(message);
+  const status = $("#upload-status");
+  if (status) status.className = "upload-status err";
   const extractStatus = $("#extract-status");
   if (extractStatus) extractStatus.textContent = "";
 }
@@ -1130,6 +1136,10 @@ $("#extract-btn").onclick = async () => {
     }
   }
   $("#extract-btn").disabled = false;
+};
+
+$("#try-another-btn").onclick = () => {
+  resetImportFlow("Ready for another receipt.");
 };
 
 const dropZone = $("#drop-zone");

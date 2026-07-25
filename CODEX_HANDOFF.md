@@ -831,3 +831,30 @@ Claude Code (Fable 5) rewrote the README to match the brief's "brief README" ask
 ### Known Risk / Follow-Up
 
 - None. The removed feature detail is still discoverable in the app and in this handoff log.
+
+## Latest Edit: Try Another Receipt Button
+
+Codex GPT-5.5 added a reset button under the live receipt preview.
+
+### What Changed
+
+- Added `Try another receipt` under the receipt preview action area.
+- Clicking it clears the current staged/selected preview.
+- The import card returns to `Import file` with the upload/drop/photo controls visible again.
+- Already-uploaded receipts are not deleted; this only resets the current preview/import workflow.
+
+### Files Modified
+
+- `static/index.html`
+- `static/app.js`
+- `CODEX_HANDOFF.md`
+
+### Verification
+
+- Ran the project test suite with the local virtualenv: `8 passed`.
+- Confirmed the local server at `http://localhost:8080/` returned `200`.
+- Verified the static bundle contains `try-another-btn` and `resetImportFlow`.
+
+### Known Risk / Follow-Up
+
+- None.
