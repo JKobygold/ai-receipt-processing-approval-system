@@ -82,6 +82,8 @@ tests/             End-to-end workflow tests (FastAPI TestClient)
 ## AI tools used
 
 - **Development:** Built with **Claude Code** (Claude Fable 5) doing the implementation under my direction — architecture choices, scope, and review were mine; Claude Code wrote the code, tests, and this README, and verified the app end-to-end (test suite + live server smoke test) before delivery.
+- **Follow-up polish:** **Codex GPT-5.5** made minor UI/workflow modifications, including the CRM-inspired role selection login, bulk deletion, sorting, popup messaging, camera capture, and browser smoke verification.
+- **Agent coordination:** The repo includes an [Agentic Coordination Protocol](AGENTIC_PROTOCOL.md) and [Codex handoff notes](CODEX_HANDOFF.md) documenting how agent-made edits were tracked after Claude/Fable exhausted its usable token budget.
 - **Receipt processing:** **Anthropic Claude API** (`claude-opus-4-8` by default) with vision + PDF input and structured outputs for schema-guaranteed JSON, including per-field confidence scores. A deterministic mock service is included so the app runs without an API key, as permitted by the brief.
 
 ## Potential future improvements
