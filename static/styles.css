@@ -151,6 +151,7 @@ body {
 .drop-hint { font-size: 11px; color: var(--muted); margin-top: 4px; }
 .upload-status { font-size: 12px; font-weight: 600; min-height: 16px; color: var(--gold-700); }
 .upload-status.err { color: var(--danger); }
+.import-actions { margin-top: 12px; display: flex; justify-content: center; }
 
 .preview-frame {
   background: var(--parchment); border: 1px solid var(--line); border-radius: 8px;
@@ -186,6 +187,9 @@ body {
 .banner { border-radius: var(--radius); padding: 9px 12px; font-size: 12px; margin-bottom: 10px; border: 1px solid transparent; border-left-width: 3px; }
 .banner.warn { background: var(--gold-50); color: var(--gold-700); border-color: var(--gold-300); border-left-color: var(--warn); }
 .banner.error { background: #f7e3df; color: var(--danger); border-color: #e3b6ad; border-left-color: var(--danger); }
+.reject-just { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; margin-top: 6px; color: #82261a; }
+.reject-reasons { margin: 4px 0 0; padding-left: 18px; }
+.reject-reasons li { margin: 2px 0; line-height: 1.45; }
 
 .fields-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; margin-bottom: 14px; }
 .field label { display: block; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: var(--muted); margin-bottom: 4px; }
@@ -263,7 +267,7 @@ body {
 }
 .r-table-header > span { color: var(--gold-100); font-family: var(--sans); font-size: 11px; font-weight: 700; }
 .r-table-row {
-  display: flex; gap: 10px; padding: 10px 14px; border-bottom: 1px solid var(--line-soft);
+  display: flex; gap: 8px; padding: 10px 14px; border-bottom: 1px solid var(--line-soft);
   cursor: pointer; align-items: center; transition: background 0.1s;
 }
 .r-table-row:hover { background: var(--parchment); }
@@ -273,16 +277,47 @@ body {
 .rt-merchant .rt-file { display: block; font-size: 11px; font-weight: 400; color: var(--muted); overflow: hidden; text-overflow: ellipsis; }
 .rt-date { flex: 1.1; min-width: 84px; font-size: 12px; color: var(--ink-soft); white-space: nowrap; }
 .rt-total { flex: 1; min-width: 80px; font-size: 13px; font-weight: 700; text-align: right; color: var(--green); font-family: var(--serif); white-space: nowrap; }
+.rt-currency { flex: 0.8; min-width: 68px; font-size: 12px; color: var(--ink-soft); font-weight: 600; text-align: center; white-space: nowrap; }
 .rt-tax { flex: 0.8; min-width: 64px; font-size: 12px; text-align: right; color: var(--muted); white-space: nowrap; }
-.rt-stage { flex: 2.6; min-width: 275px; display: flex; justify-content: flex-end; align-items: center; }
+.rt-items { flex: 0.6; min-width: 52px; font-size: 12px; text-align: center; color: var(--ink-soft); font-weight: 600; white-space: nowrap; cursor: help; }
+.rt-stage { flex: 2.4; min-width: 240px; display: flex; justify-content: flex-end; align-items: center; }
 .r-empty { padding: 18px 14px; font-size: 13px; color: var(--muted); }
+.rt-editcol { width: 66px; flex-shrink: 0; display: flex; justify-content: flex-end; }
+.rt-edit { padding: 4px 10px; font-size: 11px; }
+
+/* Message to manager */
+.msg-manager { margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--line-soft); }
+.msg-title { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: var(--muted); margin-bottom: 6px; }
+.msg-input {
+  width: 100%; padding: 8px 10px; border: 1px solid var(--line); border-radius: var(--radius);
+  font: inherit; font-size: 13px; background: #fffdf6; color: var(--ink); resize: vertical; box-sizing: border-box;
+}
+.msg-input:focus { outline: none; border-color: var(--gold-600); box-shadow: 0 0 0 3px rgba(167,121,31,0.14); }
+.msg-meta { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; margin-top: 4px; }
+.msg-hint { font-size: 11px; color: var(--muted); font-style: italic; }
+.msg-count { font-size: 11px; font-weight: 700; color: var(--muted); white-space: nowrap; }
+.msg-count.msg-limit { color: var(--danger); }
+
+/* Expanded row — full record under the selected receipt */
+.r-expand {
+  background: var(--parchment); border-bottom: 1px solid var(--line-soft);
+  border-left: 3px solid var(--gold-600); padding: 14px 18px;
+}
+.rx-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px 16px; margin-bottom: 4px; }
+.rx-cell { min-width: 0; }
+.rx-label { display: block; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: var(--muted); margin-bottom: 2px; }
+.rx-value { display: block; font-size: 13px; font-weight: 600; color: var(--navy-800); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rx-items-table { margin-top: 10px; background: var(--ivory); border-radius: 5px; }
+.rx-items-table td { padding: 6px 10px; font-size: 12px; color: var(--ink-soft); }
+.rx-no-items { margin-top: 8px; font-size: 12px; color: var(--muted); font-style: italic; }
+@media (max-width: 700px) { .rx-grid { grid-template-columns: repeat(2, 1fr); } }
 .rt-flags { margin-top: 2px; }
 
 /* ─── Stage tracker: Uploaded → Processing → Review → Submitted ─── */
-.stage-track { display: flex; align-items: center; gap: 3px; }
+.stage-track { display: flex; align-items: center; gap: 2px; }
 .stage {
-  font-size: 9.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.4px;
-  padding: 3px 8px; border-radius: 99px; white-space: nowrap;
+  font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.3px;
+  padding: 2px 6px; border-radius: 99px; white-space: nowrap;
   background: #f1ece2; color: #b3a888; border: 1px solid var(--line-soft);
 }
 .stage-arrow { font-size: 9px; color: var(--line); font-style: normal; }
@@ -343,7 +378,7 @@ body {
   .work-grid { grid-template-columns: 1fr; }
   .fields-grid { grid-template-columns: repeat(2, 1fr); }
   .modal-grid { grid-template-columns: 1fr; }
-  .rt-tax { display: none; }
+  .rt-tax, .rt-currency, .rt-items { display: none; }
   .rt-stage { min-width: 0; }
   .stage:not(.current) { display: none; }   /* on small screens show only the active stage */
   .stage-arrow { display: none; }

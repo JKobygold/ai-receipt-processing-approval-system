@@ -2,7 +2,8 @@
 
 let role = "employee";
 let receipts = [];
-let selectedId = null;   // employee: receipt shown in preview + fields panel
+let selectedId = null;   // employee: receipt open in preview + Extracted details (via Edit)
+let expandedId = null;   // employee: receipt expanded inline in the table (via row click)
 let modalId = null;      // manager: receipt open in the approval modal
 
 const $ = (sel) => document.querySelector(sel);
@@ -27,11 +28,6 @@ async function api(path, opts = {}) {
   return res.json();
 }
 
-function money(v, currency) {
-  if (v === null || v === undefined) return "—";
-  return `${Number(v).toFixed(2)} ${currency || ""}`.trim();
-}
-
 function escapeHtml(s) {
   return String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 }
@@ -46,6 +42,20 @@ function confBadge(conf, field) {
 // Flag a field yellow when the extractor wasn't confident about it.
 function lowConf(conf, field) {
   return conf && conf[field] !== undefined && conf[field] < 0.9;
+}
+
+function isNotReceiptError(err) {
+  return typeof err === "string" && err.startsWith("Sorry");
+}
+
+// "Sorry — this is not a receipt.\n• reason\n• reason" -> banner with bullet list
+function rejectionBanner(err) {
+  const [title, ...rest] = err.split("\n");
+  const bullets = rest.map((l) => l.replace(/^•\s*/, "").trim()).filter(Boolean);
+  return `<div class="banner error"><b>${escapeHtml(title)}</b>
+    ${bullets.length ? `<div class="reject-just">Justification of rejection:</div>
+      <ul class="reject-reasons">${bullets.map((b) => `<li>${escapeHtml(b)}</li>`).join("")}</ul>` : ""}
+  </div>`;
 }
 
 // ---------- stage tracker ----------
@@ -66,26 +76,63 @@ function stageTrack(status) {
 
 // ---------- receipts table ----------
 
-function tableRow(r) {
+function tableRow(r, withEdit) {
   const dup = r.duplicate_of_id ? `<div class="rt-flags"><span class="badge-dup">⚠ possible duplicate of #${r.duplicate_of_id}</span></div>` : "";
   const rejected = r.status === "rejected" && r.manager_comment
     ? `<div class="rt-flags"><span class="badge-dup" style="color:var(--danger);border-color:#e3b6ad;background:#f7e3df;">Manager: ${escapeHtml(r.manager_comment)}</span></div>` : "";
   const notReceipt = r.status === "failed" && r.extraction_error?.startsWith("Sorry")
     ? `<div class="rt-flags"><span class="badge-dup" style="color:var(--danger);border-color:#e3b6ad;background:#f7e3df;">Not a receipt</span></div>` : "";
   return `
-    <div class="r-table-row ${r.id === selectedId && role === "employee" ? "selected" : ""}" data-id="${r.id}">
+    <div class="r-table-row ${r.id === expandedId && role === "employee" ? "selected" : ""}" data-id="${r.id}">
       <span class="rt-id">#${r.id}</span>
       <span class="rt-merchant">${escapeHtml(r.merchant || "—")}
         <span class="rt-file">${escapeHtml(r.original_name)}</span>${dup}${rejected}${notReceipt}
       </span>
       <span class="rt-date">${r.purchase_date || "—"}</span>
-      <span class="rt-total">${money(r.total_amount, r.currency)}</span>
+      <span class="rt-total">${r.total_amount != null ? Number(r.total_amount).toFixed(2) : "—"}</span>
+      <span class="rt-currency">${escapeHtml(r.currency || "—")}</span>
       <span class="rt-tax">${r.tax_amount != null ? Number(r.tax_amount).toFixed(2) : "—"}</span>
+      <span class="rt-items" title="${escapeHtml((r.line_items || []).map((li) => li.description).join(", "))}">${(r.line_items || []).length || "—"}</span>
       <span class="rt-stage">${stageTrack(r.status)}</span>
+      ${withEdit ? `<span class="rt-editcol"><button class="btn rt-edit" data-edit="${r.id}" title="Open in the review panel to edit fields">✎ Edit</button></span>` : ""}
     </div>`;
 }
 
-function receiptTable(rows, emptyText) {
+// Inline expansion under the selected row — the full record, read-only.
+function expandHtml(r) {
+  const cell = (label, value) => `
+    <div class="rx-cell"><span class="rx-label">${label}</span><span class="rx-value">${value}</span></div>`;
+  const items = (r.line_items || []);
+  return `<div class="r-expand">
+    <div class="rx-grid">
+      ${cell("Merchant name", escapeHtml(r.merchant || "—"))}
+      ${cell("Purchase date", r.purchase_date || "—")}
+      ${cell("Total amount", r.total_amount != null ? Number(r.total_amount).toFixed(2) : "—")}
+      ${cell("Currency", escapeHtml(r.currency || "—"))}
+      ${cell("Tax", r.tax_amount != null ? Number(r.tax_amount).toFixed(2) : "—")}
+      ${cell("File", escapeHtml(r.original_name))}
+      ${cell("Uploaded", (r.created_at || "").replace("T", " ").replace("Z", ""))}
+      ${cell("Status", STATUS_LABELS[r.status])}
+    </div>
+    ${items.length ? `
+      <table class="li-table rx-items-table">
+        <thead><tr><th>Line item</th><th>Qty</th><th>Unit price</th><th>Amount</th></tr></thead>
+        <tbody>${items.map((li) => `<tr>
+          <td>${escapeHtml(li.description || "")}</td>
+          <td>${li.quantity ?? "—"}</td>
+          <td>${li.unit_price != null ? Number(li.unit_price).toFixed(2) : "—"}</td>
+          <td>${li.amount != null ? Number(li.amount).toFixed(2) : "—"}</td>
+        </tr>`).join("")}</tbody>
+      </table>` : `<div class="rx-no-items">No line items extracted.</div>`}
+    ${r.manager_comment ? `<div class="banner warn" style="margin:10px 0 0;"><b>Manager comment:</b> ${escapeHtml(r.manager_comment)}</div>` : ""}
+    ${r.employee_note ? `<div class="banner warn" style="margin:10px 0 0;"><b>Note to manager:</b> ${escapeHtml(r.employee_note)}</div>` : ""}
+    ${r.extraction_error ? `<div style="margin-top:10px;">${isNotReceiptError(r.extraction_error)
+      ? rejectionBanner(r.extraction_error)
+      : `<div class="banner error">${escapeHtml(r.extraction_error)}</div>`}</div>` : ""}
+  </div>`;
+}
+
+function receiptTable(rows, emptyText, expandable) {
   if (!rows.length) return `<p class="r-empty">${emptyText}</p>`;
   return `
     <div class="r-table-header">
@@ -93,15 +140,18 @@ function receiptTable(rows, emptyText) {
       <span class="rt-merchant">Merchant / file</span>
       <span class="rt-date">Date</span>
       <span class="rt-total" style="color:var(--gold-100);font-family:inherit;">Total</span>
+      <span class="rt-currency">Currency</span>
       <span class="rt-tax">Tax</span>
+      <span class="rt-items">Items</span>
       <span class="rt-stage" style="justify-content:flex-end;">Stage</span>
+      ${expandable ? `<span class="rt-editcol"></span>` : ""}
     </div>
-    ${rows.map(tableRow).join("")}`;
+    ${rows.map((r) => tableRow(r, expandable) + (expandable && r.id === expandedId ? expandHtml(r) : "")).join("")}`;
 }
 
 function renderLists() {
   if (role === "employee") {
-    $("#employee-table").innerHTML = receiptTable(receipts, "No receipts yet — upload one to get started.");
+    $("#employee-table").innerHTML = receiptTable(receipts, "No receipts yet — upload one to get started.", true);
   } else {
     const pending = receipts.filter((r) => r.status === "submitted");
     const done = receipts.filter((r) => ["approved", "rejected"].includes(r.status));
@@ -152,6 +202,8 @@ function fieldsHtml(r, audit) {
   let actions = "";
   if (editable) actions += `<button id="save-btn" class="btn">Save changes</button>`;
   if (["review", "rejected"].includes(r.status)) actions += `<button id="submit-btn" class="btn btn-primary">Submit for approval</button>`;
+  if (r.status === "failed" && isNotReceiptError(r.extraction_error))
+    actions += `<button id="override-btn" class="btn btn-gold" title="Disagree with the AI? Send this back into review and fill the fields manually.">Override — this IS a receipt</button>`;
   if (["failed", "review"].includes(r.status)) actions += `<button id="retry-btn" class="btn btn-ghost">↻ Re-run extraction</button>`;
 
   return `
@@ -162,13 +214,15 @@ function fieldsHtml(r, audit) {
       ${stageTrack(r.status)}
     </div>
     ${r.duplicate_of_id ? `<div class="banner warn">⚠ Possible duplicate of receipt #${r.duplicate_of_id} (same file, or same merchant / date / total).</div>` : ""}
-    ${r.extraction_error ? `<div class="banner error">${r.extraction_error.startsWith("Sorry") ? escapeHtml(r.extraction_error) : "Extraction failed: " + escapeHtml(r.extraction_error)}</div>` : ""}
+    ${r.extraction_error ? (isNotReceiptError(r.extraction_error)
+      ? rejectionBanner(r.extraction_error)
+      : `<div class="banner error">Extraction failed: ${escapeHtml(r.extraction_error)}</div>`) : ""}
     ${r.manager_comment ? `<div class="banner warn"><b>Manager comment:</b> ${escapeHtml(r.manager_comment)} — correct the fields below and resubmit.</div>` : ""}
     ${r.status === "uploaded" ? `<div class="banner warn">Receipt uploaded — press <b>Submit receipt</b> under the preview to send it to our AI for extraction.</div>` : ""}
     ${r.status === "processing" ? `<div class="banner warn">Our AI is reading this receipt — fields will appear here in a few seconds.</div>` : ""}
     <form id="edit-form" onsubmit="return false;">
       <div class="fields-grid">
-        ${field("Merchant", "merchant", r.merchant)}
+        ${field("Merchant name", "merchant", r.merchant)}
         ${field("Purchase date", "purchase_date", r.purchase_date, "date")}
         ${field("Total amount", "total_amount", r.total_amount, "number")}
         ${field("Currency", "currency", r.currency)}
@@ -184,6 +238,20 @@ function fieldsHtml(r, audit) {
       </div>
     </form>
     <div class="actions">${actions}<span id="detail-msg"></span></div>
+    ${r.status !== "approved" ? `
+    <div class="msg-manager">
+      <div class="msg-title">Message to manager</div>
+      <textarea id="mgr-msg" class="msg-input" rows="3"
+        placeholder="Add a note about this receipt for your manager…">${escapeHtml(r.employee_note || "")}</textarea>
+      <div class="msg-meta">
+        <span class="msg-hint">Please be clear and concise in your communication.</span>
+        <span id="msg-count" class="msg-count"></span>
+      </div>
+      <div class="actions" style="margin-top:8px;">
+        <button id="msg-send" class="btn">Message to manager</button>
+        <span id="msg-status"></span>
+      </div>
+    </div>` : ""}
     <details class="audit"><summary>Audit log</summary>
       <ul>${audit.map((a) => `<li><span>${a.created_at}</span> <b>${a.actor}</b> ${a.action}${a.detail ? " — " + escapeHtml(a.detail) : ""}</li>`).join("")}</ul>
     </details>`;
@@ -250,6 +318,37 @@ function wireFields(r) {
     await api(`/api/receipts/${r.id}/submit`, { method: "POST" });
   }));
   $("#retry-btn")?.addEventListener("click", act(() => api(`/api/receipts/${r.id}/extract`, { method: "POST" })));
+  $("#override-btn")?.addEventListener("click", act(() => api(`/api/receipts/${r.id}/override`, { method: "POST" })));
+
+  // Message to manager — hard 100-word limit, cut off as you type.
+  const msgBox = $("#mgr-msg");
+  if (msgBox) {
+    const LIMIT = 100;
+    const words = (t) => t.trim().split(/\s+/).filter(Boolean);
+    const updateCount = () => {
+      let w = words(msgBox.value);
+      if (w.length > LIMIT) {
+        msgBox.value = w.slice(0, LIMIT).join(" ");
+        w = words(msgBox.value);
+      }
+      const el = $("#msg-count");
+      el.textContent = `${w.length}/${LIMIT} words`;
+      el.classList.toggle("msg-limit", w.length >= LIMIT);
+    };
+    msgBox.addEventListener("input", updateCount);
+    updateCount();
+    $("#msg-send").onclick = async () => {
+      const status = $("#msg-status");
+      try {
+        await api(`/api/receipts/${r.id}/message`, { method: "POST", body: JSON.stringify({ text: msgBox.value }) });
+        status.textContent = "Sent to manager.";
+        status.className = "msg-ok";
+      } catch (e) {
+        status.textContent = e.message;
+        status.className = "msg-err";
+      }
+    };
+  }
 }
 
 function wireRowDeletes() {
@@ -288,11 +387,12 @@ async function openModal(id) {
     ${stageTrack(r.status)}
     ${r.duplicate_of_id ? `<div class="banner warn" style="margin-top:10px;">⚠ Possible duplicate of receipt #${r.duplicate_of_id}.</div>` : ""}
     ${r.manager_comment ? `<div class="banner warn" style="margin-top:10px;"><b>Comment:</b> ${escapeHtml(r.manager_comment)}</div>` : ""}
+    ${r.employee_note ? `<div class="banner warn" style="margin-top:10px;"><b>Note from employee:</b> ${escapeHtml(r.employee_note)}</div>` : ""}
     <div class="modal-grid">
       <div class="preview-frame">${previewHtml(r)}</div>
       <div>
         <div class="fields-grid" style="grid-template-columns:repeat(2,1fr);">
-          ${ro("Merchant", "merchant", r.merchant)}
+          ${ro("Merchant name", "merchant", r.merchant)}
           ${ro("Purchase date", "purchase_date", r.purchase_date)}
           ${ro("Total amount", "total_amount", r.total_amount)}
           ${ro("Currency", "currency", r.currency)}
@@ -375,17 +475,35 @@ function setRole(newRole) {
 }
 
 document.addEventListener("click", (e) => {
+  const editBtn = e.target.closest("[data-edit]");
+  if (editBtn) {
+    selectReceipt(Number(editBtn.dataset.edit), { scroll: true });
+    return;
+  }
   const row = e.target.closest(".r-table-row[data-id]");
   if (row) {
     const id = Number(row.dataset.id);
-    if (role === "employee") selectReceipt(id, { scroll: true });
-    else openModal(id);
+    if (role === "employee") {
+      // Row click only expands/collapses the inline record — editing is via ✎ Edit.
+      expandedId = expandedId === id ? null : id;
+      renderLists();
+    } else {
+      openModal(id);
+    }
   }
   if (e.target.id === "detail-overlay") closeModal();
 });
 
 $("#role-employee").onclick = () => setRole("employee");
 $("#role-manager").onclick = () => setRole("manager");
+
+// TODO(Jacob): fill in the random-receipt logic (e.g. fetch a sample receipt
+// image and run it through uploadFile()).
+$("#random-receipt-btn").onclick = () => {
+  const status = $("#upload-status");
+  status.className = "upload-status";
+  status.textContent = "Random receipt — logic coming soon.";
+};
 
 $("#extract-btn").onclick = async () => {
   if (!selectedId) return;
@@ -436,7 +554,13 @@ async function init() {
   } catch {}
   if (location.hash === "#manager") setRole("manager");
   await refresh();
-  if (role === "employee" && receipts.length) await selectReceipt(receipts[0].id);
+  // Preview starts empty — it fills when a receipt is uploaded or selected.
+  // Deep link: #r<id> opens a receipt directly (e.g. /#r2).
+  const deepLink = location.hash.match(/^#r(\d+)$/);
+  if (deepLink && role === "employee") {
+    expandedId = Number(deepLink[1]);
+    await selectReceipt(expandedId);
+  }
   // Poll while anything is processing so stages advance live in the table.
   // ("uploaded" is now an idle state — it waits for the employee to submit.)
   setInterval(async () => {

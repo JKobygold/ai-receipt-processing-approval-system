@@ -114,15 +114,15 @@ def process_receipt(receipt_id: int):
         return
 
     if data.get("is_receipt") is False:
-        reason = data.get("not_receipt_reason") or "the file does not look like a receipt"
-        reason = reason[0].lower() + reason[1:] if reason else reason
+        reasons = [r.strip() for r in (data.get("not_receipt_reasons") or []) if r and r.strip()]
+        reasons = reasons or ["The file does not look like a purchase receipt."]
+        message = "Sorry — this is not a receipt.\n" + "\n".join(f"• {r}" for r in reasons)
         with get_db() as conn:
             conn.execute(
                 "UPDATE receipts SET status='failed', extraction_error=?, updated_at=? WHERE id=?",
-                (f"Sorry — this is not a receipt. It looks like {reason}. "
-                 "Please upload a photo or PDF of an actual purchase receipt.", utcnow(), receipt_id),
+                (message, utcnow(), receipt_id),
             )
-            log_audit(conn, receipt_id, "system", "not_a_receipt", reason)
+            log_audit(conn, receipt_id, "system", "not_a_receipt", "; ".join(reasons))
         return
 
     with get_db() as conn:
@@ -166,6 +166,10 @@ class ReceiptUpdate(BaseModel):
 
 class RejectBody(BaseModel):
     comment: str
+
+
+class MessageBody(BaseModel):
+    text: str
 
 
 # ---------- routes ----------
@@ -272,6 +276,44 @@ def extract_receipt(receipt_id: int, background: BackgroundTasks):
         log_audit(conn, receipt_id, "employee", "extraction_requested")
     background.add_task(process_receipt, receipt_id)
     return {"ok": True}
+
+
+MESSAGE_WORD_LIMIT = 100
+
+
+@app.post("/api/receipts/{receipt_id}/message")
+def message_to_manager(receipt_id: int, body: MessageBody):
+    """Attach a short employee note to the receipt for the manager.
+    Hard 100-word limit — anything beyond is cut off."""
+    words = body.text.split()
+    if not words:
+        raise HTTPException(422, "Message text is required")
+    text = " ".join(words[:MESSAGE_WORD_LIMIT])
+    with get_db() as conn:
+        row = fetch_receipt(conn, receipt_id)
+        if row["status"] == "approved":
+            raise HTTPException(409, "Cannot add a message to an approved receipt")
+        conn.execute("UPDATE receipts SET employee_note=?, updated_at=? WHERE id=?",
+                     (text, utcnow(), receipt_id))
+        log_audit(conn, receipt_id, "employee", "message_to_manager", text)
+        return row_to_receipt(conn, fetch_receipt(conn, receipt_id))
+
+
+@app.post("/api/receipts/{receipt_id}/override")
+def override_rejection(receipt_id: int):
+    """Employee overrides the AI's not-a-receipt verdict: the receipt goes back
+    into review so the fields can be filled in manually and submitted."""
+    with get_db() as conn:
+        row = fetch_receipt(conn, receipt_id)
+        if row["status"] != "failed":
+            raise HTTPException(409, f"Cannot override a receipt in status '{row['status']}'")
+        conn.execute(
+            "UPDATE receipts SET status='review', extraction_error=NULL, updated_at=? WHERE id=?",
+            (utcnow(), receipt_id),
+        )
+        log_audit(conn, receipt_id, "employee", "rejection_overridden",
+                  "employee marked the file as a valid receipt")
+        return row_to_receipt(conn, fetch_receipt(conn, receipt_id))
 
 
 @app.post("/api/receipts/{receipt_id}/submit")

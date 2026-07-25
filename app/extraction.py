@@ -28,9 +28,12 @@ RECEIPT_SCHEMA = {
             "type": "boolean",
             "description": "true only if the file is actually a receipt or invoice (a record of a purchase or payment)",
         },
-        "not_receipt_reason": {
-            "type": ["string", "null"],
-            "description": "If not a receipt: a short description of what the file appears to be instead",
+        "not_receipt_reasons": {
+            "type": "array",
+            "items": {"type": "string"},
+            "description": "If not a receipt: 2-4 brief bullet-point justifications for the rejection "
+                           "(what the file appears to be, and what receipt elements are missing). "
+                           "Empty array when is_receipt is true.",
         },
         "merchant": {"type": ["string", "null"]},
         "purchase_date": {"type": ["string", "null"], "description": "ISO date YYYY-MM-DD"},
@@ -58,7 +61,7 @@ RECEIPT_SCHEMA = {
             "additionalProperties": False,
         },
     },
-    "required": ["is_receipt", "not_receipt_reason"] + FIELDS + ["confidence"],
+    "required": ["is_receipt", "not_receipt_reasons"] + FIELDS + ["confidence"],
     "additionalProperties": False,
 }
 
@@ -67,8 +70,10 @@ PROMPT = """Extract: Merchant name, Purchase date, Total amount, Currency, Tax, 
 Rules:
 - FIRST decide whether this file is actually a receipt or invoice — a record of a purchase or
   payment. If it is not (e.g. a random photo, screenshot, menu, letter, or blank image), set
-  is_receipt to false, describe what it appears to be in not_receipt_reason, and set every
-  data field to null. Do not invent receipt data for a file that is not a receipt.
+  is_receipt to false and give 2-4 brief bullet-point justifications in not_receipt_reasons
+  (each a short sentence: what the file appears to be, which receipt elements are missing —
+  e.g. no merchant, no total, no payment details), and set every data field to null.
+  Do not invent receipt data for a file that is not a receipt.
 - purchase_date must be ISO format (YYYY-MM-DD). If ambiguous, prefer the most plausible reading.
 - currency is the ISO 4217 code (infer from symbols/locale if not printed).
 - total_amount is the grand total actually charged; tax_amount is total tax.
@@ -151,7 +156,9 @@ class MockExtractor:
         raw = file_path.read_bytes()
         if b"NOTARECEIPT" in raw:  # test hook mirroring the live is_receipt check
             return {
-                "is_receipt": False, "not_receipt_reason": "a test file marked as not a receipt",
+                "is_receipt": False,
+                "not_receipt_reasons": ["The file is marked as a non-receipt test fixture.",
+                                        "No merchant, total, or payment details are present."],
                 "merchant": None, "purchase_date": None, "total_amount": None,
                 "currency": None, "tax_amount": None, "line_items": [], "confidence": {},
             }
@@ -173,7 +180,7 @@ class MockExtractor:
         tax = round(subtotal * 0.08, 2)
         return {
             "is_receipt": True,
-            "not_receipt_reason": None,
+            "not_receipt_reasons": [],
             "merchant": merchant,
             "purchase_date": f"2026-{month:02d}-{day:02d}",
             "total_amount": round(subtotal + tax, 2),

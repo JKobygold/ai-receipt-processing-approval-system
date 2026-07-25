@@ -91,10 +91,43 @@ def test_not_a_receipt_is_flagged():
     rid = upload(b"cat-photo.png", PNG + b"NOTARECEIPT").json()["id"]
     r = client.get(f"/api/receipts/{rid}").json()
     assert r["status"] == "failed"
+    # Rejection message: title line + bullet-point justifications
     assert r["extraction_error"].startswith("Sorry — this is not a receipt")
+    assert "\n• " in r["extraction_error"]
     # Not-a-receipt files cannot be submitted for approval
     assert client.post(f"/api/receipts/{rid}/submit").status_code == 409
     assert "not_a_receipt" in [a["action"] for a in client.get(f"/api/receipts/{rid}/audit").json()]
+
+
+def test_override_sends_rejected_file_back_to_review():
+    rid = upload(b"weird-receipt.png", PNG + b"NOTARECEIPT" + b"v2").json()["id"]
+    assert client.get(f"/api/receipts/{rid}").json()["status"] == "failed"
+
+    # Employee overrides the AI verdict -> back to review, error cleared
+    r = client.post(f"/api/receipts/{rid}/override").json()
+    assert r["status"] == "review" and r["extraction_error"] is None
+
+    # Manual fill + submit now works
+    client.patch(f"/api/receipts/{rid}", json={"merchant": "Hand-entered Store", "total_amount": 12.5})
+    assert client.post(f"/api/receipts/{rid}/submit").json()["status"] == "submitted"
+    # Override can't be applied twice
+    assert client.post(f"/api/receipts/{rid}/override").status_code == 409
+    assert "rejection_overridden" in [a["action"] for a in client.get(f"/api/receipts/{rid}/audit").json()]
+
+
+def test_message_to_manager_word_limit():
+    rid = upload(b"msg.png", PNG + b"\x00msg").json()["id"]
+
+    assert client.post(f"/api/receipts/{rid}/message", json={"text": "   "}).status_code == 422
+    r = client.post(f"/api/receipts/{rid}/message", json={"text": "Client dinner with the Rajant team"}).json()
+    assert r["employee_note"] == "Client dinner with the Rajant team"
+
+    # 150 words in -> hard cut at 100
+    long_text = " ".join(f"word{i}" for i in range(150))
+    r = client.post(f"/api/receipts/{rid}/message", json={"text": long_text}).json()
+    assert len(r["employee_note"].split()) == 100
+    assert r["employee_note"].endswith("word99")
+    assert "message_to_manager" in [a["action"] for a in client.get(f"/api/receipts/{rid}/audit").json()]
 
 
 def test_rejects_unsupported_file_type():
