@@ -156,6 +156,7 @@ class LineItemIn(BaseModel):
 
 
 class ReceiptUpdate(BaseModel):
+    receipt_name: Optional[str] = None
     merchant: Optional[str] = None
     purchase_date: Optional[str] = None
     total_amount: Optional[float] = None

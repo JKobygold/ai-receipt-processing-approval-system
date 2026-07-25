@@ -45,9 +45,11 @@ def test_upload_extract_edit_submit_approve():
 
     # Employee edits extracted data
     r = client.patch(f"/api/receipts/{rid}", json={
+        "receipt_name": "Coffee receipt",
         "merchant": "Edited Coffee Co",
         "line_items": [{"description": "Latte", "quantity": 2, "unit_price": 5.0, "amount": 10.0}],
     }).json()
+    assert r["receipt_name"] == "Coffee receipt"
     assert r["merchant"] == "Edited Coffee Co"
     assert len(r["line_items"]) == 1
 

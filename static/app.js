@@ -59,6 +59,10 @@ function confBadge(conf, field) {
   return `<span class="conf ${cls}" title="AI confidence">${Math.round(c * 100)}%</span>`;
 }
 
+function receiptDisplayName(r) {
+  return r.receipt_name || r.merchant || r.original_name || `Receipt #${r.id}`;
+}
+
 // Flag a field yellow when the extractor wasn't confident about it.
 function lowConf(conf, field) {
   return conf && conf[field] !== undefined && conf[field] < 0.9;
@@ -108,7 +112,7 @@ function tableRow(r, withEdit) {
         <input type="checkbox" data-select="${r.id}" aria-label="Select receipt #${r.id}" ${selectedReceiptIds.has(r.id) ? "checked" : ""}>
       </span>` : ""}
       <span class="rt-id">#${r.id}</span>
-      <span class="rt-merchant">${escapeHtml(r.merchant || "—")}
+      <span class="rt-merchant">${escapeHtml(receiptDisplayName(r))}
         <span class="rt-file">${escapeHtml(r.original_name)}</span>${dup}${rejected}${notReceipt}
       </span>
       <span class="rt-date">${r.purchase_date || "—"}</span>
@@ -190,7 +194,7 @@ function sortedReceipts(rows) {
   return [...rows].sort((a, b) => {
     let result = 0;
     if (receiptSort === "merchant-asc") {
-      result = text(a.merchant || a.original_name).localeCompare(text(b.merchant || b.original_name));
+      result = text(receiptDisplayName(a)).localeCompare(text(receiptDisplayName(b)));
     } else if (receiptSort === "date-desc") {
       result = dateValue(b) - dateValue(a);
     } else if (receiptSort === "date-asc") {
@@ -270,7 +274,7 @@ function fieldsHtml(r, audit) {
   const field = (label, name, value, type = "text") => `
     <div class="field ${lowConf(conf, name) ? "flagged" : ""}">
       <label>${label} ${confBadge(conf, name)}</label>
-      <input class="field-input" name="${name}" type="${type}" step="any" value="${value ?? ""}" ${d}>
+      <input class="field-input" name="${name}" type="${type}" step="any" value="${escapeHtml(value ?? "")}" ${d}>
     </div>`;
 
   let actions = "";
@@ -281,10 +285,13 @@ function fieldsHtml(r, audit) {
   if (["failed", "review"].includes(r.status)) actions += `<button id="retry-btn" class="btn btn-ghost">↻ Re-run extraction</button>`;
 
   return `
-    <div class="fields-head">
-      <span class="fields-title">Extracted details — receipt #${r.id}</span>
+    <div class="modal-head">
+      <span class="modal-title">Extracted details</span>
       <span class="status-chip status-${r.status}">${STATUS_LABELS[r.status]}</span>
-      <span class="fields-spacer"></span>
+      <button id="modal-close" class="modal-close" title="Close">✕</button>
+    </div>
+    <div class="fields-head">
+      <span class="fields-title">Name receipt</span>
       ${stageTrack(r.status)}
     </div>
     ${r.duplicate_of_id ? `<div class="banner warn">⚠ Possible duplicate of receipt #${r.duplicate_of_id} (same file, or same merchant / date / total).</div>` : ""}
@@ -301,6 +308,7 @@ function fieldsHtml(r, audit) {
     </div>
     <form id="edit-form" onsubmit="return false;">
       <div class="fields-grid">
+        ${field("Receipt name", "receipt_name", r.receipt_name || receiptDisplayName(r))}
         ${field("Merchant name", "merchant", r.merchant)}
         ${field("Purchase date", "purchase_date", r.purchase_date, "date")}
         ${field("Total amount", "total_amount", r.total_amount, "number")}
@@ -342,16 +350,20 @@ async function selectReceipt(id, { scroll = false } = {}) {
   $("#preview-frame").innerHTML = previewHtml(r);
   $("#preview-actions").hidden = !["uploaded", "failed"].includes(r.status);
   $("#extract-status").textContent = "";
-  $("#fields-card").hidden = false;
-  $("#fields-card").innerHTML = fieldsHtml(r, audit);
+  $("#fields-card").hidden = true;
+  $("#fields-card").innerHTML = "";
+  $("#detail-panel").classList.add("employee-detail-modal");
+  $("#detail-panel").innerHTML = fieldsHtml(r, audit);
+  $("#detail-overlay").hidden = false;
   wireFields(r);
-  if (scroll) $("#fields-card").scrollIntoView({ behavior: "smooth", block: "nearest" });
+  if (scroll) $("#detail-panel").scrollIntoView({ behavior: "smooth", block: "nearest" });
 }
 
 function collectForm() {
   const f = $("#edit-form");
   const num = (v) => (v === "" ? null : Number(v));
   return {
+    receipt_name: f.receipt_name.value.trim() || null,
     merchant: f.merchant.value || null,
     purchase_date: f.purchase_date.value || null,
     total_amount: num(f.total_amount.value),
@@ -375,6 +387,7 @@ function wireFields(r) {
     catch (e) { msg(e.message, true); }
   };
 
+  $("#modal-close")?.addEventListener("click", closeModal);
   $("#li-add")?.addEventListener("click", () => {
     $("#li-table tbody").insertAdjacentHTML("beforeend", lineItemRow({}, true));
     wireRowDeletes();
@@ -420,9 +433,10 @@ async function openModal(id) {
       <button id="reject-btn" class="btn btn-danger">Reject</button>
     </span>` : "";
 
+  $("#detail-panel").classList.remove("employee-detail-modal");
   $("#detail-panel").innerHTML = `
     <div class="modal-head">
-      <span class="modal-title">Receipt #${r.id} — ${escapeHtml(r.merchant || r.original_name)}</span>
+      <span class="modal-title">${escapeHtml(receiptDisplayName(r))}</span>
       <span class="status-chip status-${r.status}">${STATUS_LABELS[r.status]}</span>
       <button id="modal-close" class="modal-close" title="Close">✕</button>
     </div>
@@ -476,6 +490,7 @@ async function openModal(id) {
 function closeModal() {
   stopCameraStream();
   $("#detail-overlay").hidden = true;
+  $("#detail-panel").classList.remove("employee-detail-modal");
   modalId = null;
 }
 
@@ -487,9 +502,10 @@ function stopCameraStream() {
 
 function openMessageModal(r) {
   const current = escapeHtml(r.employee_note || "");
+  $("#detail-panel").classList.remove("employee-detail-modal");
   $("#detail-panel").innerHTML = `
     <div class="modal-head">
-      <span class="modal-title">Message to manager — receipt #${r.id}</span>
+      <span class="modal-title">Message to manager — ${escapeHtml(receiptDisplayName(r))}</span>
       <button id="modal-close" class="modal-close" title="Close">✕</button>
     </div>
     <div class="message-modal-body">
@@ -555,6 +571,7 @@ function openMessageModal(r) {
 }
 
 async function openCameraModal() {
+  $("#detail-panel").classList.remove("employee-detail-modal");
   $("#detail-panel").innerHTML = `
     <div class="modal-head">
       <span class="modal-title">Take receipt photo</span>
@@ -768,7 +785,7 @@ document.addEventListener("click", (e) => {
 
 async function deleteReceipt(id) {
   const receipt = receipts.find((r) => r.id === id);
-  const label = receipt?.merchant || receipt?.original_name || `receipt #${id}`;
+  const label = receipt ? receiptDisplayName(receipt) : `receipt #${id}`;
   if (!confirm(`Delete ${label}? This removes it from the database and receipt list.`)) return;
   try {
     await api(`/api/receipts/${id}`, { method: "DELETE" });

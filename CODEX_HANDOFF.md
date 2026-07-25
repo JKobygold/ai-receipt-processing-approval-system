@@ -367,6 +367,45 @@ Codex GPT-5.5 simplified the employee receipt import flow so import and preview 
 
 - The current flow hides import controls once a file is staged. To choose a different file before submitting, the user can refresh or select another receipt; a future `Choose different file` button could make that explicit.
 
+## Latest Edit: Extracted Details Popup + Receipt Naming
+
+Codex GPT-5.5 moved employee extracted-details review into a popup and added editable receipt names.
+
+### What Changed
+
+- Added a `receipt_name` database field via migration.
+- Added `receipt_name` to the receipt update API so employees can rename receipts while reviewing/editing extracted data.
+- After AI extraction or clicking `Edit`, the receipt preview stays in the import card and `Extracted details` now opens in the modal overlay.
+- Replaced the visible `Extracted details — receipt #...` heading with a `Name receipt` section.
+- Added a `Receipt name` input at the top of the extracted-fields form.
+- Updated employee tables, sort-by-merchant behavior, manager modal titles, message modal titles, and delete confirmations to prefer the custom receipt name.
+- Widened the extracted-details modal so the edit form has room to breathe.
+
+### Files Modified
+
+- `migrations/003_receipt_name.sql`
+- `app/main.py`
+- `static/app.js`
+- `static/styles.css`
+- `tests/test_workflow.py`
+- `CODEX_HANDOFF.md`
+
+### Verification
+
+- Ran the project test suite with the local virtualenv: `8 passed`.
+- Restarted the local server and confirmed `http://localhost:8080/` returned `200`, applying migration `003_receipt_name.sql` to the live development database.
+- Ran a live API smoke test against `http://localhost:8080/`:
+  - Created a temporary receipt.
+  - Put it into review status for editability.
+  - Patched `receipt_name` to `Smoke Test Receipt`.
+  - Confirmed the API returned `Smoke Test Receipt`.
+  - Deleted the temporary receipt.
+- In-app browser automation was unavailable in this thread, so the modal UI change was verified through code review plus the existing restarted local app.
+
+### Known Risk / Follow-Up
+
+- Existing receipts will have `receipt_name = NULL` until renamed, so the UI falls back to merchant, then original filename.
+
 ## Files Modified
 
 - `static/index.html`
