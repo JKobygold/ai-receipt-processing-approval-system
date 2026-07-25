@@ -744,6 +744,13 @@ Codex GPT-5.5 fixed the deployed upload flow after a Railway redeploy exposed st
 - Confirmed live API upload and fetch worked on Railway before the fix, isolating the issue to stale UI state/persistence across deploys.
 - Ran the project test suite with the local virtualenv: `8 passed`.
 - Confirmed Railway volume `web-volume` is attached to service `web` at `/data`.
+- Deployed commit `a1217b2` to Railway.
+- Verified live Railway upload/extract path:
+  - `POST /api/receipts` returned `201`.
+  - `GET /api/receipts/1` returned `200`.
+  - `POST /api/receipts/1/extract` returned `200`.
+  - Polling moved the receipt to `review` with merchant `Metro Office Supply`.
+- Railway logs show the volume mounting before app startup.
 
 ### Known Risk / Follow-Up
 
