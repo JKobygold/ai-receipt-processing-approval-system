@@ -501,6 +501,32 @@ Codex GPT-5.5 made the AI confidence scores interactive and explanatory.
 
 - The AI returns one score for `line_items` as a whole rather than separate scores per individual line item, matching the current extraction schema.
 
+## Latest Edit: Anonymized Employee Display Name
+
+Codex GPT-5.5 replaced the personal employee display name in the UI with an anonymized employee label.
+
+### What Changed
+
+- Replaced the employee profile name with `Employee #427 - Parable, Stanley`.
+- Replaced employee initials from `JG` to `SP`.
+- Updated both the login tile and topbar fallback values.
+
+### Files Modified
+
+- `static/app.js`
+- `static/index.html`
+- `CODEX_HANDOFF.md`
+
+### Verification
+
+- Searched the app for the previous personal name/initials; no matches remain in the searched project files.
+- Ran the project test suite with the local virtualenv: `8 passed`.
+- Confirmed the local server at `http://localhost:8080/` returned `200`.
+
+### Known Risk / Follow-Up
+
+- None.
+
 ## Files Modified
 
 - `static/index.html`

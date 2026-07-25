@@ -13,7 +13,7 @@ let activeCameraStream = null;
 
 const $ = (sel) => document.querySelector(sel);
 const ROLE_PROFILES = {
-  employee: { name: "Jacob Gold", role: "Employee", initials: "JG" },
+  employee: { name: "Employee #427 - Parable, Stanley", role: "Employee", initials: "SP" },
   manager: { name: "Manager", role: "Manager", initials: "MG" },
 };
 
