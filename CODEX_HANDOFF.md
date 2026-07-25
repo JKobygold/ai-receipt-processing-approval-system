@@ -1122,6 +1122,34 @@ Codex GPT-5.5 made the `Sending to Claude...` extraction status more visible in 
 
 - None expected; this is a focused frontend polish change.
 
+## Latest Edit: Claude Extraction Loading Popup
+
+Codex GPT-5.5 changed the Claude extraction indicator from an inline status to a centered popup.
+
+### What Changed
+
+- Added a dedicated `#claude-overlay` loading popup created by the frontend when extraction starts.
+- The popup appears after `Submit for AI extraction` is clicked and updates through preparing/uploading/sending states.
+- The popup stays visible while the backend extraction request and polling loop are running.
+- The popup closes only after the extraction flow has a review/failed result or if an error occurs.
+- Kept the inline preview status as a simple supporting message instead of the primary loading indicator.
+
+### Files Modified
+
+- `static/app.js`
+- `static/styles.css`
+- `CODEX_HANDOFF.md`
+
+### Verification
+
+- Ran `node --check static/app.js` successfully.
+- Ran the project test suite with the local virtualenv: `8 passed`.
+- Confirmed the local server at `http://localhost:8080/` returned `200`.
+
+### Known Risk / Follow-Up
+
+- None expected; this is frontend state/visual handling only.
+
 ## Latest Edit: README — video link + camera capture line
 
 Claude Code (Fable 5) applied two doc-only additions from a README review.

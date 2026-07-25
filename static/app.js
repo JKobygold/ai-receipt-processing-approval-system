@@ -362,6 +362,28 @@ function setPreviewActions({ showExtract, showAnother = true, hint = "", statusT
   actions.hidden = !showExtract && !showAnother && !hint && !statusText;
 }
 
+function showClaudeOverlay(message = "Sending to Claude...") {
+  let overlay = $("#claude-overlay");
+  if (!overlay) {
+    document.body.insertAdjacentHTML("beforeend", `<div id="claude-overlay" class="claude-overlay" hidden></div>`);
+    overlay = $("#claude-overlay");
+  }
+  overlay.innerHTML = `
+    <div class="claude-popup" role="status" aria-live="assertive">
+      <span class="claude-spinner claude-popup-spinner" aria-hidden="true">C</span>
+      <div>
+        <div class="claude-popup-title">${escapeHtml(message)}</div>
+        <div class="claude-popup-copy">Claude is reading the receipt and returning structured expense data.</div>
+      </div>
+    </div>`;
+  overlay.hidden = false;
+}
+
+function hideClaudeOverlay() {
+  const overlay = $("#claude-overlay");
+  if (overlay) overlay.hidden = true;
+}
+
 function showSubmittedPreview(r, message = "Submitted for manager approval. Ready to add another receipt.") {
   selectedId = r.id;
   expandedId = null;
@@ -1156,11 +1178,13 @@ $("#extract-btn").onclick = async () => {
   const status = $("#extract-status");
   status.className = "upload-status";
   $("#extract-btn").disabled = true;
+  showClaudeOverlay("Preparing receipt for Claude...");
   try {
     let id = selectedId;
     // A staged file (random or drag/drop) is uploaded HERE — this is the point
     // where the receipt first appears in "My receipts".
     if (pendingFile) {
+      showClaudeOverlay("Uploading receipt...");
       status.textContent = `Uploading ${pendingFile.name}…`;
       const fd = new FormData();
       fd.append("file", pendingFile);
@@ -1169,9 +1193,10 @@ $("#extract-btn").onclick = async () => {
       clearStaged();
       await refresh();
     }
-    if (!id) { $("#extract-btn").disabled = false; return; }
-    status.className = "upload-status claude-status";
-    status.innerHTML = `<span class="claude-spinner" aria-hidden="true">C</span><span>Sending to Claude...</span>`;
+    if (!id) return;
+    showClaudeOverlay("Sending to Claude...");
+    status.className = "upload-status";
+    status.textContent = "Claude extraction in progress...";
     await api(`/api/receipts/${id}/extract`, { method: "POST" });
     // Follow the extraction through: uploaded -> processing -> review/failed.
     for (let i = 0; i < 45; i++) {
@@ -1180,16 +1205,20 @@ $("#extract-btn").onclick = async () => {
       if (!r || !["uploaded", "processing"].includes(r.status)) break;
       await new Promise((res) => setTimeout(res, 2000));
     }
+    hideClaudeOverlay();
     await selectReceipt(id, { scroll: true });
   } catch (e) {
+    hideClaudeOverlay();
     if (e.message === "Receipt not found") {
       resetMissingReceipt("That receipt is no longer available after the latest deploy. Please choose the file again.");
     } else {
+      status.className = "upload-status err";
       status.textContent = e.message;
-      status.classList.add("err");
     }
+  } finally {
+    hideClaudeOverlay();
+    $("#extract-btn").disabled = false;
   }
-  $("#extract-btn").disabled = false;
 };
 
 $("#try-another-btn").onclick = () => {
