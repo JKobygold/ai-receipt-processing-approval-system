@@ -806,3 +806,28 @@ Codex GPT-5.5 added visible file-type metadata below receipt previews.
 In the AI tools section, mention:
 
 > Development used Claude Code for the initial implementation. Codex GPT-5.5 made minor UI/workflow polish modifications, including the CRM-inspired role selection login screen and browser smoke verification.
+
+## Latest Edit: Trimmed README to a Brief
+
+Claude Code (Fable 5) rewrote the README to match the brief's "brief README" ask.
+
+### What Changed
+
+- Cut the README from ~147 lines to ~55: one-paragraph intro, a "What it does" section mapping to the brief's requirements, condensed Setup (local/Docker/tests/config table), tightened "AI tools used", and the three required sections only.
+- Kept the Railway live-demo link near the top.
+- Rewrote "Potential future improvements" to three items at the developer's direction: (1) user authentication, (2) clearer manager review criteria, (3) mostly-automated manager with human-in-the-loop escalation for exceptions over a defined parameter.
+- Removed the long marketing-style feature lists and the standalone Architecture section (its essentials folded into Setup).
+
+### Files Modified
+
+- `README.md`
+- `CODEX_HANDOFF.md`
+
+### Verification
+
+- Docs-only change; no application code touched.
+- Ran the project test suite with the local virtualenv: `8 passed`.
+
+### Known Risk / Follow-Up
+
+- None. The removed feature detail is still discoverable in the app and in this handoff log.
