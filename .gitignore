@@ -6,3 +6,9 @@ data/
 .pytest_cache/
 .DS_Store
 .env
+
+# internal process notes — not part of the deliverable
+CHECKS.md
+CURRENT_GOAL.md
+HUMAN_ONLY.md
+MEMORY.md
