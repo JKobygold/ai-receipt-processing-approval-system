@@ -46,7 +46,11 @@ docker run -p 8000:8000 -e ANTHROPIC_API_KEY=sk-ant-... receipt-approval   # omi
 | `RECEIPT_MODEL` | `claude-opus-4-8` | Model used for extraction |
 | `RECEIPT_DATA_DIR` | `./data` | Where the SQLite DB + uploads live |
 
-DB schema and numbered migrations are in [migrations/](migrations/) (applied automatically at startup); backend in [app/](app/), vanilla-JS frontend (no build step) in [static/](static/).
+## Source code & DB schema/migrations
+
+- **Backend source:** [app/](app/) contains the FastAPI routes, SQLite access layer, and AI/mock extraction service.
+- **Frontend source:** [static/](static/) contains the vanilla-JS single-page app, styles, logo, and sample receipt assets.
+- **DB schema/migrations:** [migrations/](migrations/) contains numbered SQL migrations, including the initial schema and later workflow fields. Migrations are applied automatically at startup.
 
 ## AI tools used
 

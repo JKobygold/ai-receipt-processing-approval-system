@@ -945,6 +945,30 @@ Codex GPT-5.5 applied the mobile stacked-row treatment to the employee `My recei
 
 - None.
 
+## Latest Edit: README Source Code and DB Schema Section
+
+Codex GPT-5.5 made the assignment deliverable language more explicit in the README.
+
+### What Changed
+
+- Added a `Source code & DB schema/migrations` section.
+- Linked the backend source directory, frontend source directory, and numbered SQL migrations.
+- Clarified that migrations are applied automatically at startup.
+
+### Files Modified
+
+- `README.md`
+- `CODEX_HANDOFF.md`
+
+### Verification
+
+- Docs-only change; no application code touched.
+- Confirmed the README now uses the assignment's requested wording.
+
+### Known Risk / Follow-Up
+
+- None.
+
 ## Latest Edit: README — video link + camera capture line
 
 Claude Code (Fable 5) applied two doc-only additions from a README review.
