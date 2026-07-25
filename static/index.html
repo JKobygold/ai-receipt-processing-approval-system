@@ -86,7 +86,7 @@
 
         <!-- Import block -->
         <div class="dash-card">
-          <div class="card-header">Import file</div>
+          <div id="import-card-header" class="card-header">Import file</div>
           <div id="drop-zone" class="drop-zone">
             <input type="file" id="file-input"
                    accept="image/png,image/jpeg,image/heic,image/heif,application/pdf,.png,.jpg,.jpeg,.heic,.heif,.pdf" hidden>
@@ -105,16 +105,9 @@
           <div class="import-actions">
             <button id="random-receipt-btn" class="btn">🎲 Try random receipt</button>
           </div>
-        </div>
-
-        <!-- Preview frame -->
-        <div class="dash-card">
-          <div class="card-header">Receipt preview</div>
-          <div id="preview-frame" class="preview-frame">
-            <div class="preview-empty">Upload a receipt — or select one from the table below — to preview it here.</div>
-          </div>
+          <div id="preview-frame" class="preview-frame" hidden></div>
           <div id="preview-actions" class="preview-actions" hidden>
-            <button id="extract-btn" class="btn btn-gold">Submit receipt</button>
+            <button id="extract-btn" class="btn btn-gold">Submit for AI extraction</button>
             <div class="preview-actions-hint">Sends this receipt to Claude to extract: merchant name, purchase date, total amount, currency, tax, and line items (if available).</div>
             <span id="extract-status" class="upload-status"></span>
           </div>

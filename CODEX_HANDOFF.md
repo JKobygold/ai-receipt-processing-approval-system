@@ -329,6 +329,44 @@ Codex GPT-5.5 improved the camera popup for permission-denied states.
 
 - Browser APIs cannot force camera permission after a user or browser has blocked it. The user may need to use the browser camera icon or site settings to allow camera access for `localhost:8080`, then click `Request permission again`.
 
+## Latest Edit: Single-Card Import to Preview Flow
+
+Codex GPT-5.5 simplified the employee receipt import flow so import and preview are no longer separate cards.
+
+### What Changed
+
+- Removed the separate side-by-side `Receipt preview` card.
+- The employee import card now starts as `Import file`.
+- After a receipt file/photo is selected, photographed, dropped, or randomly staged:
+  - The import controls hide.
+  - The same card header changes to `Receipt preview`.
+  - The receipt preview appears in the same location where import controls were.
+  - The action button reads `Submit for AI extraction`.
+- Updated the uploaded-state helper copy to reference `Submit for AI extraction`.
+
+### Files Modified
+
+- `static/index.html`
+- `static/app.js`
+- `static/styles.css`
+- `CODEX_HANDOFF.md`
+
+### Verification
+
+- Ran the project test suite with the local virtualenv: `8 passed`.
+- Ran a browser smoke test against `http://localhost:8080/`:
+  - Initial employee view shows `Import file`.
+  - Drop zone is visible initially.
+  - Receipt preview is hidden initially.
+  - Selecting an image through the file input changes the header to `Receipt preview`.
+  - Drop zone hides after file selection.
+  - Preview image appears in the same card.
+  - Button text is `Submit for AI extraction`.
+
+### Known Risk / Follow-Up
+
+- The current flow hides import controls once a file is staged. To choose a different file before submitting, the user can refresh or select another receipt; a future `Choose different file` button could make that explicit.
+
 ## Files Modified
 
 - `static/index.html`

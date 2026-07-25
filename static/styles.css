@@ -315,8 +315,8 @@ body {
 .howto-tips p { margin: 2px 2px 8px; font-size: 12px; color: var(--ink-soft); line-height: 1.5; }
 .howto-tips b { color: var(--navy-700); }
 
-/* ─── Import + preview row ─── */
-.work-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; align-items: stretch; }
+/* ─── Import + preview ─── */
+.work-grid { display: block; }
 
 .drop-zone {
   border: 2px dashed var(--gold-500); border-radius: 8px; background: var(--parchment);
@@ -324,6 +324,7 @@ body {
   display: flex; flex-direction: column; align-items: center; gap: 6px;
   transition: background 0.15s, border-color 0.15s; min-height: 230px; justify-content: center;
 }
+.drop-zone[hidden], .import-actions[hidden], #preview-frame[hidden] { display: none; }
 .drop-zone:hover { background: var(--gold-50); }
 .drop-zone.dragover { background: var(--gold-50); border-color: var(--gold-700); box-shadow: 0 0 0 4px rgba(199,154,58,0.18); }
 .drop-icon { font-size: 30px; }

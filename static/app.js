@@ -231,6 +231,23 @@ function previewHtml(r) {
     onerror="this.outerHTML='<div class=&quot;preview-fallback&quot;>🧾 ${escapeHtml(r.original_name)}<br>Preview isn\\'t supported for this format in your browser — the file uploaded fine and will still be processed.</div>'">`;
 }
 
+function showImportMode() {
+  $("#import-card-header").textContent = "Import file";
+  $("#drop-zone").hidden = false;
+  $(".import-actions").hidden = false;
+  $("#preview-frame").hidden = true;
+  $("#preview-frame").innerHTML = "";
+  $("#preview-actions").hidden = true;
+  $("#extract-status").textContent = "";
+}
+
+function showPreviewMode(title = "Receipt preview") {
+  $("#import-card-header").textContent = title;
+  $("#drop-zone").hidden = true;
+  $(".import-actions").hidden = true;
+  $("#preview-frame").hidden = false;
+}
+
 // ---------- extracted fields panel (employee) ----------
 
 function lineItemRow(li = {}, editable) {
@@ -275,7 +292,7 @@ function fieldsHtml(r, audit) {
       ? rejectionBanner(r.extraction_error)
       : `<div class="banner error">Extraction failed: ${escapeHtml(r.extraction_error)}</div>`) : ""}
     ${r.manager_comment ? `<div class="banner warn"><b>Manager comment:</b> ${escapeHtml(r.manager_comment)} — correct the fields below and resubmit.</div>` : ""}
-    ${r.status === "uploaded" ? `<div class="banner warn">Receipt uploaded — press <b>Submit receipt</b> under the preview to send it to our AI for extraction.</div>` : ""}
+    ${r.status === "uploaded" ? `<div class="banner warn">Receipt uploaded — press <b>Submit for AI extraction</b> under the preview to send it to our AI.</div>` : ""}
     ${r.status === "processing" ? `<div class="banner warn">Our AI is reading this receipt — fields will appear here in a few seconds.</div>` : ""}
     <div class="receipt-meta-grid">
       <div class="receipt-meta-cell"><span>Uploaded</span><b>${formatTimestamp(r.created_at)}</b></div>
@@ -315,13 +332,13 @@ async function selectReceipt(id, { scroll = false } = {}) {
   selectedId = id;
   renderLists();
   if (id === null) {
-    $("#preview-frame").innerHTML = previewHtml(null);
-    $("#preview-actions").hidden = true;
+    showImportMode();
     $("#fields-card").hidden = true;
     return;
   }
   const r = await api(`/api/receipts/${id}`);
   const audit = await api(`/api/receipts/${id}/audit`);
+  showPreviewMode("Receipt preview");
   $("#preview-frame").innerHTML = previewHtml(r);
   $("#preview-actions").hidden = !["uploaded", "failed"].includes(r.status);
   $("#extract-status").textContent = "";
@@ -647,9 +664,10 @@ function stageFile(file) {
   pendingFile = file;
   pendingUrl = URL.createObjectURL(file);
   selectedId = null;
-  status.textContent = "Ready — press Submit receipt to send it to Claude.";
+  status.textContent = "Ready — press Submit for AI extraction.";
 
   const isPdf = file.type === "application/pdf" || /\.pdf$/i.test(file.name);
+  showPreviewMode("Receipt preview");
   $("#preview-frame").innerHTML = isPdf
     ? `<div class="pdf-wrap"><iframe class="pdf-embed" src="${pendingUrl}#toolbar=0&navpanes=0" title="Staged receipt"></iframe></div>`
     : `<img src="${pendingUrl}" alt="Staged receipt">`;
