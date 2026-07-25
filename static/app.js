@@ -332,8 +332,7 @@ function showImportMode() {
   $(".import-actions").hidden = false;
   $("#preview-frame").hidden = true;
   $("#preview-frame").innerHTML = "";
-  $("#preview-actions").hidden = true;
-  $("#extract-status").textContent = "";
+  setPreviewActions({ showExtract: false, showAnother: false });
 }
 
 function showPreviewMode(title = "Receipt preview") {
@@ -341,6 +340,38 @@ function showPreviewMode(title = "Receipt preview") {
   $("#drop-zone").hidden = true;
   $(".import-actions").hidden = true;
   $("#preview-frame").hidden = false;
+}
+
+function setPreviewActions({ showExtract, showAnother = true, hint = "", statusText = "" }) {
+  const actions = $("#preview-actions");
+  const extract = $("#extract-btn");
+  const another = $("#try-another-btn");
+  const hintEl = $(".preview-actions-hint");
+  const status = $("#extract-status");
+  if (!actions || !extract || !another || !hintEl || !status) return;
+
+  extract.hidden = !showExtract;
+  another.hidden = !showAnother;
+  hintEl.hidden = !hint;
+  hintEl.textContent = hint;
+  status.textContent = statusText;
+  status.className = "upload-status";
+  actions.hidden = !showExtract && !showAnother && !hint && !statusText;
+}
+
+function showSubmittedPreview(r, message = "Submitted for manager approval. Ready to add another receipt.") {
+  selectedId = r.id;
+  expandedId = null;
+  showPreviewMode("Receipt preview");
+  $("#preview-frame").innerHTML = previewHtml(r);
+  setPreviewActions({
+    showExtract: false,
+    showAnother: true,
+    hint: "This receipt has been submitted to the manager. Use Add another receipt to restart the import flow.",
+    statusText: message,
+  });
+  $("#fields-card").hidden = true;
+  $("#fields-card").innerHTML = "";
 }
 
 function resetImportFlow(message = "") {
@@ -478,8 +509,13 @@ async function selectReceipt(id, { scroll = false } = {}) {
   }
   showPreviewMode("Receipt preview");
   $("#preview-frame").innerHTML = previewHtml(r);
-  $("#preview-actions").hidden = !["uploaded", "failed"].includes(r.status);
-  $("#extract-status").textContent = "";
+  setPreviewActions({
+    showExtract: ["uploaded", "failed"].includes(r.status),
+    showAnother: true,
+    hint: ["uploaded", "failed"].includes(r.status)
+      ? "Sends this receipt to Claude to extract: merchant name, purchase date, total amount, currency, tax, and line items (if available)."
+      : "Use Add another receipt to restart the import flow.",
+  });
   $("#fields-card").hidden = true;
   $("#fields-card").innerHTML = "";
   $("#detail-panel").classList.add("employee-detail-modal");
@@ -532,10 +568,9 @@ function wireFields(r) {
         await api(`/api/receipts/${r.id}`, { method: "PATCH", body: JSON.stringify(collectForm()) });
       await api(`/api/receipts/${r.id}/submit`, { method: "POST" });
       closeModal();
-      selectedId = null;
-      expandedId = null;
-      showImportMode();
       await refresh();
+      const submitted = receipts.find((x) => x.id === r.id) || await api(`/api/receipts/${r.id}`);
+      showSubmittedPreview(submitted);
     } catch (e) {
       msg(e.message, true);
     }
@@ -919,8 +954,11 @@ function stageFile(file) {
   $("#preview-frame").innerHTML = isPdf
     ? `<div class="pdf-wrap"><iframe class="pdf-embed" src="${pendingUrl}#toolbar=0&navpanes=0" title="Staged receipt"></iframe>${fileTypeMeta(file.type, file.name)}</div>`
     : `<div class="image-preview-wrap"><img src="${pendingUrl}" alt="Staged receipt">${fileTypeMeta(file.type, file.name)}</div>`;
-  $("#preview-actions").hidden = false;
-  $("#extract-status").textContent = "";
+  setPreviewActions({
+    showExtract: true,
+    showAnother: true,
+    hint: "Sends this receipt to Claude to extract: merchant name, purchase date, total amount, currency, tax, and line items (if available).",
+  });
   $("#fields-card").hidden = true;
 }
 

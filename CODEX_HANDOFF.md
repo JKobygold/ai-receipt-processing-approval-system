@@ -1044,6 +1044,32 @@ Codex GPT-5.5 made the Claude receipt-processing path more prominent in the READ
 
 - None.
 
+## Latest Edit: Receipt Preview Restart After Submit
+
+Codex GPT-5.5 updated the employee receipt preview flow so employees can restart immediately after submitting a receipt for manager approval.
+
+### What Changed
+
+- Added a state-aware preview action helper for `Submit for AI extraction` and `Add another receipt`.
+- After submitting a reviewed receipt for manager approval, the receipt preview remains visible instead of returning directly to the import card.
+- In that submitted-preview state, `Submit for AI extraction` is hidden and `Add another receipt` remains visible.
+- Selecting an existing receipt also shows `Add another receipt`, while uploaded/failed receipts still show the extraction button.
+
+### Files Modified
+
+- `static/app.js`
+- `CODEX_HANDOFF.md`
+
+### Verification
+
+- Ran the project test suite with the local virtualenv: `8 passed`.
+- Confirmed the local server at `http://localhost:8080/` returned `200`.
+- Ran `node --check static/app.js` successfully.
+
+### Known Risk / Follow-Up
+
+- None expected; this is frontend state handling only.
+
 ## Latest Edit: README — video link + camera capture line
 
 Claude Code (Fable 5) applied two doc-only additions from a README review.
