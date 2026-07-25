@@ -527,6 +527,41 @@ Codex GPT-5.5 replaced the personal employee display name in the UI with an anon
 
 - None.
 
+## Latest Edit: README Submission Coverage
+
+Codex GPT-5.5 expanded the README so it directly covers the take-home deliverable checklist.
+
+### What Changed
+
+- Expanded the feature list into clear sections:
+  - Employee workflow
+  - Manager workflow
+  - AI extraction
+  - Bonus features implemented
+- Clarified local setup steps, including optional `.env` usage.
+- Clarified Docker setup with and without `ANTHROPIC_API_KEY`.
+- Expanded the test coverage description.
+- Expanded the AI tools section to separately document:
+  - Claude Code / Claude Fable 5 for initial development
+  - Codex GPT-5.5 for follow-up polish and verification
+  - Anthropic Claude API / mock extractor for receipt processing
+  - Agentic coordination docs
+- Expanded potential future improvements.
+
+### Files Modified
+
+- `README.md`
+- `CODEX_HANDOFF.md`
+
+### Verification
+
+- Ran the project test suite with the local virtualenv: `8 passed`.
+- Confirmed the local server at `http://localhost:8080/` returned `200`.
+
+### Known Risk / Follow-Up
+
+- None. This was a documentation-only update.
+
 ## Files Modified
 
 - `static/index.html`

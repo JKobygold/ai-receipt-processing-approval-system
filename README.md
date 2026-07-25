@@ -6,18 +6,42 @@ A lightweight web app for expense receipts: employees upload a receipt (image or
 
 ## Features
 
-**Core**
-- Upload receipts via drag-and-drop or file picker (PNG/JPEG/HEIC/GIF/WebP/PDF, 15 MB max), with a live per-receipt stage tracker (Uploaded → Processing → Review → Submitted) in the UI; HEIC is transcoded to JPEG before AI extraction
-- AI extraction of merchant, purchase date, total, currency, tax, and line items
-- Employee review screen with side-by-side receipt preview and fully editable fields/line items
-- Manager queue with approve / reject (comment **required** on rejection)
-- Role switcher in the header (Employee ⇄ Manager) — an auth stub, enforced server-side via an `X-Role` header
+**Employee workflow**
+- CRM-style role login with separate Employee and Manager profiles.
+- Upload receipts as images or PDFs: PNG, JPEG, HEIC, GIF, WebP, or PDF up to 15 MB.
+- Import by drag-and-drop, file picker, desktop/mobile camera capture, or included sample receipts.
+- Preview the receipt before sending it to AI extraction.
+- Track every receipt through `Uploaded → Processing → Review → Submitted`.
+- Review AI-extracted fields in a popup with the receipt preview visible for comparison.
+- Edit merchant, purchase date, total amount, currency, tax, receipt name, and line items.
+- Submit reviewed receipts for manager approval.
+- Reset back to the import screen after a successful submission so the next receipt is ready to upload.
+- View upload time, status, extracted data, manager comments, employee notes, and audit history.
+- Sort receipts by merchant/name, date ascending/descending, total ascending/descending, or workflow stage.
+- Delete one receipt or bulk-delete selected receipts from both the UI and database.
+
+**Manager workflow**
+- Review pending submitted receipts in a manager queue.
+- View receipt preview, extracted fields, confidence scores, employee notes, duplicate warnings, and audit history.
+- Approve receipts.
+- Reject receipts with a required rejection comment.
+- Rejected receipts return to the employee for correction and resubmission.
+
+**AI extraction**
+- Extracts merchant name, purchase date, total amount, currency, tax, and line items when available.
+- Supports live Claude extraction or deterministic mock extraction for local/offline development.
+- Uses structured JSON output so extracted receipt data is parsed predictably.
+- Detects non-receipt uploads and explains why the file was rejected.
+- Failed or suspicious extractions can be retried.
 
 **Bonus features implemented**
-- **Per-field confidence scores** from the extractor, shown as green/amber/red badges
-- **Duplicate detection** — exact file hash match, plus merchant + date + total match, flagged in the UI
-- **Retry mechanism** — failed (or suspicious) extractions can be re-run with one click
-- **Audit log** — every lifecycle event (upload, extraction, edits, submit, approve/reject) is recorded per receipt and viewable in the detail panel
+- **Per-field confidence scores** for merchant, date, total, currency, tax, and line items.
+- **Clickable confidence explanations** showing where the score comes from and how to interpret it.
+- **Duplicate detection** using exact file hash matches plus merchant/date/total matches.
+- **Receipt naming** so employees can give a receipt a clearer display name.
+- **Employee-to-manager message popup** with a word limit and confirmation.
+- **Audit log** for uploads, extraction requests/results, edits, messages, submissions, approvals, and rejections.
+- **Agentic coordination docs** documenting how AI-agent edits were tracked during development.
 
 ## Setup
 
@@ -27,15 +51,24 @@ A lightweight web app for expense receipts: employees upload a receipt (image or
 python3 -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
 
-# Optional: enable live AI extraction (otherwise a deterministic mock is used).
-# Either export the key, or copy .env.example to .env and paste it there —
-# .env is gitignored and loaded automatically at startup.
+# Optional: enable live AI extraction.
+# Without this key, the app uses the deterministic mock extractor.
 export ANTHROPIC_API_KEY=sk-ant-...
 
 uvicorn app.main:app --port 8000
 ```
 
-Open http://localhost:8000. The badge in the header shows which extraction provider is active (`AI: Claude` or `AI: mock`).
+Open http://localhost:8000. The badge in the header shows which extraction provider is active: `AI: Claude` or `AI: mock`.
+
+You can also use a local `.env` file:
+
+```bash
+cp .env.example .env
+# Add ANTHROPIC_API_KEY=sk-ant-... to .env
+uvicorn app.main:app --port 8000
+```
+
+`.env` is gitignored and loaded automatically at startup.
 
 ### Run with Docker
 
@@ -44,7 +77,11 @@ docker build -t receipt-approval .
 docker run -p 8000:8000 -e ANTHROPIC_API_KEY=sk-ant-... receipt-approval
 ```
 
-(Omit `-e ANTHROPIC_API_KEY` to run with the mock extractor.)
+Open http://localhost:8000. Omit `-e ANTHROPIC_API_KEY` to run with the mock extractor:
+
+```bash
+docker run -p 8000:8000 receipt-approval
+```
 
 ### Run tests
 
@@ -52,7 +89,7 @@ docker run -p 8000:8000 -e ANTHROPIC_API_KEY=sk-ant-... receipt-approval
 python3 -m pytest tests/ -q
 ```
 
-Tests cover the full employee→manager workflow, rejection rules, role enforcement, duplicate detection, and file-type validation. They always use the mock extractor and a throwaway database — no API key needed.
+Tests cover the full employee-to-manager workflow, rejection rules, role enforcement, duplicate detection, deletion, messaging, non-receipt handling, override/retry behavior, receipt naming, and file-type validation. They always use the mock extractor and a throwaway database, so no API key is needed.
 
 ### Configuration
 
@@ -81,8 +118,8 @@ tests/             End-to-end workflow tests (FastAPI TestClient)
 
 ## AI tools used
 
-- **Development:** Built with **Claude Code** (Claude Fable 5) doing the implementation under my direction — architecture choices, scope, and review were mine; Claude Code wrote the code, tests, and this README, and verified the app end-to-end (test suite + live server smoke test) before delivery.
-- **Follow-up polish:** **Codex GPT-5.5** made minor UI/workflow modifications, including the CRM-inspired role selection login, bulk deletion, sorting, popup messaging, camera capture, and browser smoke verification.
+- **Development:** Built with **Claude Code** (Claude Fable 5) doing the initial implementation under my direction. Architecture choices, scope, and review were mine; Claude Code helped write the application code, tests, and README.
+- **Follow-up polish:** **Codex GPT-5.5** made minor UI/workflow modifications, including the CRM-inspired role selection login, upload-time display, deletion, bulk deletion, sorting, popup messaging, camera capture, simplified import/preview flow, extracted-details modal, editable receipt names, receipt preview inside the review modal, post-submit reset behavior, clickable confidence explanations, anonymized employee display, documentation updates, and verification runs.
 - **Agent coordination:** The repo includes an [Agentic Coordination Protocol](AGENTIC_PROTOCOL.md) and [Codex handoff notes](CODEX_HANDOFF.md) documenting how agent-made edits were tracked after Claude/Fable exhausted its usable token budget.
 - **Receipt processing:** **Anthropic Claude API** (`claude-opus-4-8` by default) with vision + PDF input and structured outputs for schema-guaranteed JSON, including per-field confidence scores. A deterministic mock service is included so the app runs without an API key, as permitted by the brief.
 
@@ -95,3 +132,7 @@ tests/             End-to-end workflow tests (FastAPI TestClient)
 - Batch upload and email-forwarding ingestion
 - Semantic duplicate detection (fuzzy merchant matching, near-total tolerance)
 - Export approved expenses to CSV/accounting systems (QuickBooks, Xero)
+- Object storage for uploaded receipt files in production
+- Fine-grained manager dashboards, SLA metrics, and notifications
+- Stronger OCR fallback for low-quality scans before calling the vision model
+- Per-line-item confidence scores instead of one score for the line-item list as a whole
