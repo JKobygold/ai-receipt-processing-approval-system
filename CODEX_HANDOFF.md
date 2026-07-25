@@ -944,3 +944,26 @@ Codex GPT-5.5 applied the mobile stacked-row treatment to the employee `My recei
 ### Known Risk / Follow-Up
 
 - None.
+
+## Latest Edit: README — video link + camera capture line
+
+Claude Code (Fable 5) applied two doc-only additions from a README review.
+
+### What Changed
+
+- Added the YouTube walkthrough link under the live-demo line so the repo (not just the submission email) carries it.
+- Noted phone-camera capture as an import method in the employee "What it does" bullet.
+
+### Files Modified
+
+- `README.md`
+- `CODEX_HANDOFF.md`
+
+### Verification
+
+- Docs-only; no application code touched. Both facts verified against the app (Take-photo button is live; video URL from the submission email).
+
+### Deliberately NOT added
+
+- A "tested against a messy real-world corpus (crumpled/angled/low-light)" claim — no evidence that specific testing was done, so it would be an unverifiable claim. Add only if actually performed.
+- `DESIGN_NOTES.md` — does not exist in the repo; not fabricated.

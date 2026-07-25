@@ -3,12 +3,13 @@
 A lightweight web app: an employee uploads a receipt (image or PDF), Claude extracts the data, the employee reviews and edits it, and a manager approves or rejects it.
 
 **Live demo:** https://web-production-4df88.up.railway.app
+**Video walkthrough:** https://youtu.be/5GyN5knNdco
 
 **Status flow:** `Uploaded → Processing → Review → Submitted → Approved / Rejected` (plus a retryable `Failed` state).
 
 ## What it does
 
-- **Employee:** upload a receipt → watch it process → review and edit the extracted fields → submit for approval.
+- **Employee:** import a receipt (drag-and-drop, file picker, or phone camera) → watch it process → review and edit the extracted fields → submit for approval.
 - **Manager:** review the pending queue → approve, or reject with a required comment (rejected receipts go back to the employee to fix and resubmit).
 - **AI extraction:** merchant name, purchase date, total, currency, tax, and line items — via the Claude API with structured JSON output, or a deterministic mock when no API key is set.
 - **Bonus features:** per-field confidence scores, duplicate detection (file hash + merchant/date/total), retry, a full audit log, and non-receipt detection with a reason.
