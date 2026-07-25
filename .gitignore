@@ -12,3 +12,8 @@ CHECKS.md
 CURRENT_GOAL.md
 HUMAN_ONLY.md
 MEMORY.md
+
+# local sample receipts for the "Try random receipt" button — random web
+# images, not license-cleared for the public repo; swap for a permissively
+# licensed set before publishing
+static/sample-receipts/

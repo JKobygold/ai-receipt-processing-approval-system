@@ -5,6 +5,8 @@ let receipts = [];
 let selectedId = null;   // employee: receipt open in preview + Extracted details (via Edit)
 let expandedId = null;   // employee: receipt expanded inline in the table (via row click)
 let modalId = null;      // manager: receipt open in the approval modal
+let pendingFile = null;  // staged file shown in the preview but NOT yet uploaded
+let pendingUrl = null;   // object URL for the staged file's local preview
 
 const $ = (sel) => document.querySelector(sel);
 
@@ -258,6 +260,7 @@ function fieldsHtml(r, audit) {
 }
 
 async function selectReceipt(id, { scroll = false } = {}) {
+  clearStaged();
   selectedId = id;
   renderLists();
   if (id === null) {
@@ -431,9 +434,17 @@ function closeModal() {
   modalId = null;
 }
 
-// ---------- upload ----------
+// ---------- staging / upload ----------
 
-async function uploadFile(file) {
+function clearStaged() {
+  if (pendingUrl) URL.revokeObjectURL(pendingUrl);
+  pendingFile = null;
+  pendingUrl = null;
+}
+
+// Show a chosen file in the preview WITHOUT uploading it. Nothing hits
+// "My receipts" until the employee presses Submit receipt (see #extract-btn).
+function stageFile(file) {
   const status = $("#upload-status");
   status.className = "upload-status";
   if (!ACCEPTED_EXT.test(file.name || "")) {
@@ -441,18 +452,19 @@ async function uploadFile(file) {
     status.classList.add("err");
     return;
   }
-  status.textContent = `Uploading ${file.name}…`;
-  const fd = new FormData();
-  fd.append("file", file);
-  try {
-    const r = await api("/api/receipts", { method: "POST", body: fd });
-    status.textContent = "";
-    await refresh();
-    await selectReceipt(r.id, { scroll: true });
-  } catch (err) {
-    status.textContent = err.message;
-    status.classList.add("err");
-  }
+  clearStaged();
+  pendingFile = file;
+  pendingUrl = URL.createObjectURL(file);
+  selectedId = null;
+  status.textContent = "Ready — press Submit receipt to send it to Claude.";
+
+  const isPdf = file.type === "application/pdf" || /\.pdf$/i.test(file.name);
+  $("#preview-frame").innerHTML = isPdf
+    ? `<div class="pdf-wrap"><iframe class="pdf-embed" src="${pendingUrl}#toolbar=0&navpanes=0" title="Staged receipt"></iframe></div>`
+    : `<img src="${pendingUrl}" alt="Staged receipt">`;
+  $("#preview-actions").hidden = false;
+  $("#extract-status").textContent = "";
+  $("#fields-card").hidden = true;
 }
 
 // ---------- top-level wiring ----------
@@ -497,22 +509,43 @@ document.addEventListener("click", (e) => {
 $("#role-employee").onclick = () => setRole("employee");
 $("#role-manager").onclick = () => setRole("manager");
 
-// TODO(Jacob): fill in the random-receipt logic (e.g. fetch a sample receipt
-// image and run it through uploadFile()).
-$("#random-receipt-btn").onclick = () => {
+// Try random receipt: pick one of the sample images in /sample-receipts
+// (local-only folder, see .gitignore) and STAGE it in the preview. It only
+// lands in "My receipts" when the employee presses Submit receipt.
+$("#random-receipt-btn").onclick = async () => {
   const status = $("#upload-status");
   status.className = "upload-status";
-  status.textContent = "Random receipt — logic coming soon.";
+  status.textContent = "Picking a random receipt…";
+  try {
+    const manifest = await (await fetch("/sample-receipts/manifest.json")).json();
+    const name = manifest[Math.floor(Math.random() * manifest.length)];
+    const blob = await (await fetch(`/sample-receipts/${name}`)).blob();
+    stageFile(new File([blob], `random-${name}`, { type: blob.type }));
+  } catch (e) {
+    status.textContent = "No sample receipts available (" + e.message + ")";
+    status.classList.add("err");
+  }
 };
 
 $("#extract-btn").onclick = async () => {
-  if (!selectedId) return;
-  const id = selectedId;
   const status = $("#extract-status");
   status.className = "upload-status";
-  status.textContent = "Sending to Claude…";
   $("#extract-btn").disabled = true;
   try {
+    let id = selectedId;
+    // A staged file (random or drag/drop) is uploaded HERE — this is the point
+    // where the receipt first appears in "My receipts".
+    if (pendingFile) {
+      status.textContent = `Uploading ${pendingFile.name}…`;
+      const fd = new FormData();
+      fd.append("file", pendingFile);
+      const created = await api("/api/receipts", { method: "POST", body: fd });
+      id = created.id;
+      clearStaged();
+      await refresh();
+    }
+    if (!id) { $("#extract-btn").disabled = false; return; }
+    status.textContent = "Sending to Claude…";
     await api(`/api/receipts/${id}/extract`, { method: "POST" });
     // Follow the extraction through: uploaded -> processing -> review/failed.
     for (let i = 0; i < 45; i++) {
@@ -521,7 +554,7 @@ $("#extract-btn").onclick = async () => {
       if (!r || !["uploaded", "processing"].includes(r.status)) break;
       await new Promise((res) => setTimeout(res, 2000));
     }
-    if (selectedId === id) await selectReceipt(id);
+    await selectReceipt(id, { scroll: true });
   } catch (e) {
     status.textContent = e.message;
     status.classList.add("err");
@@ -532,8 +565,8 @@ $("#extract-btn").onclick = async () => {
 const dropZone = $("#drop-zone");
 dropZone.addEventListener("click", (e) => { if (!e.target.closest("button")) $("#file-input").click(); });
 $("#upload-btn").onclick = (e) => { e.stopPropagation(); $("#file-input").click(); };
-$("#file-input").addEventListener("change", async (e) => {
-  if (e.target.files[0]) await uploadFile(e.target.files[0]);
+$("#file-input").addEventListener("change", (e) => {
+  if (e.target.files[0]) stageFile(e.target.files[0]);
   e.target.value = "";
 });
 ["dragenter", "dragover"].forEach((ev) => dropZone.addEventListener(ev, (e) => {
@@ -542,9 +575,9 @@ $("#file-input").addEventListener("change", async (e) => {
 ["dragleave", "drop"].forEach((ev) => dropZone.addEventListener(ev, (e) => {
   e.preventDefault(); dropZone.classList.remove("dragover");
 }));
-dropZone.addEventListener("drop", async (e) => {
+dropZone.addEventListener("drop", (e) => {
   const file = e.dataTransfer.files?.[0];
-  if (file) await uploadFile(file);
+  if (file) stageFile(file);
 });
 
 async function init() {
