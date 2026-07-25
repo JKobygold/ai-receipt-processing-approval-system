@@ -432,6 +432,33 @@ Codex GPT-5.5 added the source receipt preview into the employee AI extraction r
 
 - None. This reuses the existing `previewHtml` rendering path already used by the main receipt preview.
 
+## Latest Edit: Reset Import Screen After Submit
+
+Codex GPT-5.5 updated the employee submit flow so the workspace is ready for the next receipt immediately after submission.
+
+### What Changed
+
+- After `Submit for approval` succeeds from the extracted-details popup:
+  - The popup closes.
+  - The selected receipt is cleared.
+  - The expanded receipt row is cleared.
+  - The import card resets back to `Import file`.
+  - The receipts list refreshes with the submitted item in its updated stage.
+
+### Files Modified
+
+- `static/app.js`
+- `CODEX_HANDOFF.md`
+
+### Verification
+
+- Ran the project test suite with the local virtualenv: `8 passed`.
+- Confirmed the local server at `http://localhost:8080/` returned `200`.
+
+### Known Risk / Follow-Up
+
+- None. Save/retry/override still keep the receipt detail popup open; only successful approval submission resets the import screen.
+
 ## Files Modified
 
 - `static/index.html`

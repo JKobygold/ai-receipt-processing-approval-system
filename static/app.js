@@ -402,11 +402,20 @@ function wireFields(r) {
 
   $("#save-btn")?.addEventListener("click", act(() =>
     api(`/api/receipts/${r.id}`, { method: "PATCH", body: JSON.stringify(collectForm()) }), "Saved."));
-  $("#submit-btn")?.addEventListener("click", act(async () => {
-    if (["review", "failed", "rejected"].includes(r.status))
-      await api(`/api/receipts/${r.id}`, { method: "PATCH", body: JSON.stringify(collectForm()) });
-    await api(`/api/receipts/${r.id}/submit`, { method: "POST" });
-  }));
+  $("#submit-btn")?.addEventListener("click", async () => {
+    try {
+      if (["review", "failed", "rejected"].includes(r.status))
+        await api(`/api/receipts/${r.id}`, { method: "PATCH", body: JSON.stringify(collectForm()) });
+      await api(`/api/receipts/${r.id}/submit`, { method: "POST" });
+      closeModal();
+      selectedId = null;
+      expandedId = null;
+      showImportMode();
+      await refresh();
+    } catch (e) {
+      msg(e.message, true);
+    }
+  });
   $("#retry-btn")?.addEventListener("click", act(() => api(`/api/receipts/${r.id}/extract`, { method: "POST" })));
   $("#override-btn")?.addEventListener("click", act(() => api(`/api/receipts/${r.id}/override`, { method: "POST" })));
   $("#msg-open")?.addEventListener("click", () => openMessageModal(r));
