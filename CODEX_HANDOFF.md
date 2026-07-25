@@ -656,6 +656,35 @@ Codex GPT-5.5 added an explicit submission audit popup for employees and manager
 
 - Existing historical audit rows still have their original shorter detail text. New submissions/manager responses will use the more descriptive audit detail text.
 
+## Latest Edit: Tracked Synthetic Random Receipt Samples
+
+Codex GPT-5.5 fixed the deployed `Try random receipt` feature by adding sample receipt assets to the repository.
+
+### What Changed
+
+- Removed the `.gitignore` rule that excluded `static/sample-receipts/`.
+- Replaced the previous local-only sample receipt images with synthetic demo receipt images generated specifically for this repository.
+- Added 12 tracked sample receipt JPG files plus `manifest.json`.
+- Updated the README to note that included sample receipts are synthetic demo images and not real purchases.
+
+### Files Modified
+
+- `.gitignore`
+- `README.md`
+- `static/sample-receipts/manifest.json`
+- `static/sample-receipts/synthetic-receipt-01.jpg` through `synthetic-receipt-12.jpg`
+- `CODEX_HANDOFF.md`
+
+### Verification
+
+- Confirmed local manifest endpoint returned `200`.
+- Confirmed a local sample image returned `200 image/jpeg`.
+- Ran the project test suite with the local virtualenv: `8 passed`.
+
+### Known Risk / Follow-Up
+
+- None. The sample files are intentionally tracked so Railway includes them in the deployed static bundle.
+
 ## Files Modified
 
 - `static/index.html`

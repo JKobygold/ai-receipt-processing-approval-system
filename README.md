@@ -45,6 +45,8 @@ A lightweight web app for expense receipts: employees upload a receipt (image or
 - **Audit log** for uploads, extraction requests/results, edits, messages, submissions, approvals, and rejections.
 - **Agentic coordination docs** documenting how AI-agent edits were tracked during development.
 
+The included sample receipts are synthetic demo images generated for this repository; they are not real purchases.
+
 ## Setup
 
 ### Live Railway deployment
