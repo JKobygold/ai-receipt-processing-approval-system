@@ -713,6 +713,42 @@ Codex GPT-5.5 improved the camera modal behavior when a browser has already hard
 
 - Browser JavaScript cannot force a permission prompt after a hard block. The user must change browser/site settings first, then retry.
 
+## Latest Edit: Railway Upload Persistence + Stale Receipt Recovery
+
+Codex GPT-5.5 fixed the deployed upload flow after a Railway redeploy exposed stale receipt IDs in the open browser tab.
+
+### What Changed
+
+- Added frontend recovery for stale/missing selected receipt IDs.
+- If a selected receipt no longer exists, the app now:
+  - Clears selected and expanded receipt state.
+  - Closes any detail modal.
+  - Resets the import card back to `Import file`.
+  - Shows a clear message asking the user to upload or choose the file again.
+- Added the same recovery path around extract errors so users no longer only see `Receipt not found`.
+- Created a Railway volume:
+  - Name: `web-volume`
+  - Mount path: `/data`
+  - Size: 5 GB
+- Set Railway variable `RECEIPT_DATA_DIR=/data`, so SQLite and uploaded receipt files persist across redeploys.
+- Updated the README Railway deployment note to document the persistent volume.
+
+### Files Modified
+
+- `static/app.js`
+- `README.md`
+- `CODEX_HANDOFF.md`
+
+### Verification
+
+- Confirmed live API upload and fetch worked on Railway before the fix, isolating the issue to stale UI state/persistence across deploys.
+- Ran the project test suite with the local virtualenv: `8 passed`.
+- Confirmed Railway volume `web-volume` is attached to service `web` at `/data`.
+
+### Known Risk / Follow-Up
+
+- Any receipts uploaded before the volume was attached lived on the old ephemeral filesystem and may not be present in the new persistent database. New uploads should persist across future redeploys.
+
 ## Files Modified
 
 - `static/index.html`

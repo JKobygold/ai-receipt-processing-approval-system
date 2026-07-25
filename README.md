@@ -51,7 +51,7 @@ The included sample receipts are synthetic demo images generated for this reposi
 
 ### Live Railway deployment
 
-The app is deployed on Railway at https://web-production-4df88.up.railway.app. The Railway service has `ANTHROPIC_API_KEY` and `RECEIPT_AI_PROVIDER=claude` configured for live receipt extraction.
+The app is deployed on Railway at https://web-production-4df88.up.railway.app. The Railway service has `ANTHROPIC_API_KEY` and `RECEIPT_AI_PROVIDER=claude` configured for live receipt extraction. It also uses a Railway volume mounted at `/data` with `RECEIPT_DATA_DIR=/data`, so the SQLite database and uploaded receipt files persist across redeploys.
 
 ### Run locally
 

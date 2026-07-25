@@ -323,6 +323,22 @@ function showPreviewMode(title = "Receipt preview") {
   $("#preview-frame").hidden = false;
 }
 
+function resetMissingReceipt(message = "That receipt is no longer available. Please choose the file again.") {
+  selectedId = null;
+  expandedId = null;
+  clearStaged();
+  closeModal();
+  showImportMode();
+  renderLists();
+  const status = $("#upload-status");
+  if (status) {
+    status.textContent = message;
+    status.className = "upload-status err";
+  }
+  const extractStatus = $("#extract-status");
+  if (extractStatus) extractStatus.textContent = "";
+}
+
 // ---------- extracted fields panel (employee) ----------
 
 function lineItemRow(li = {}, editable) {
@@ -421,8 +437,19 @@ async function selectReceipt(id, { scroll = false } = {}) {
     $("#fields-card").hidden = true;
     return;
   }
-  const r = await api(`/api/receipts/${id}`);
-  const audit = await api(`/api/receipts/${id}/audit`);
+  let r;
+  let audit;
+  try {
+    r = await api(`/api/receipts/${id}`);
+    audit = await api(`/api/receipts/${id}/audit`);
+  } catch (e) {
+    if (e.message === "Receipt not found") {
+      await refresh();
+      resetMissingReceipt("That receipt is no longer available. Please upload or choose the file again.");
+      return;
+    }
+    throw e;
+  }
   showPreviewMode("Receipt preview");
   $("#preview-frame").innerHTML = previewHtml(r);
   $("#preview-actions").hidden = !["uploaded", "failed"].includes(r.status);
@@ -879,6 +906,11 @@ async function refresh() {
   [...selectedReceiptIds].forEach((id) => {
     if (!liveIds.has(id)) selectedReceiptIds.delete(id);
   });
+  if (selectedId && !liveIds.has(selectedId) && !pendingFile) {
+    resetMissingReceipt("That receipt is no longer available. Please upload or choose the file again.");
+    return;
+  }
+  if (expandedId && !liveIds.has(expandedId)) expandedId = null;
   renderLists();
 }
 
@@ -1070,8 +1102,12 @@ $("#extract-btn").onclick = async () => {
     }
     await selectReceipt(id, { scroll: true });
   } catch (e) {
-    status.textContent = e.message;
-    status.classList.add("err");
+    if (e.message === "Receipt not found") {
+      resetMissingReceipt("That receipt is no longer available after the latest deploy. Please choose the file again.");
+    } else {
+      status.textContent = e.message;
+      status.classList.add("err");
+    }
   }
   $("#extract-btn").disabled = false;
 };
