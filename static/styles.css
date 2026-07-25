@@ -561,6 +561,17 @@ body {
   box-shadow: 0 10px 30px rgba(28,44,68,0.16);
 }
 .camera-modal-body .upload-status { margin-top: 8px; }
+.camera-help {
+  margin-top: 8px;
+  border: 1px solid #e3b6ad;
+  border-left: 3px solid var(--danger);
+  border-radius: var(--radius);
+  background: #fff8f6;
+  color: var(--danger);
+  padding: 8px 10px;
+  font-size: 12px;
+  line-height: 1.45;
+}
 
 /* Expanded row — full record under the selected receipt */
 .r-expand {

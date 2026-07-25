@@ -298,6 +298,37 @@ Codex GPT-5.5 upgraded `Take photo` from a camera-friendly file picker to actual
 
 - Real camera access requires browser permission and a secure context. `localhost` is treated as secure by modern browsers, but deployed usage should be over HTTPS.
 
+## Latest Edit: Camera Permission Recovery
+
+Codex GPT-5.5 improved the camera popup for permission-denied states.
+
+### What Changed
+
+- The camera modal now explicitly shows `Requesting camera permission...` while asking the browser.
+- If the browser denies camera access, the UI now shows:
+  - `Camera permission is blocked for this site.`
+  - A recovery note telling the user to allow camera access for localhost in the browser camera/site settings.
+  - A `Request permission again` button.
+  - The existing `Choose image` fallback.
+- Added camera stream cleanup before each retry so repeated permission attempts do not leave stale tracks running.
+
+### Files Modified
+
+- `static/app.js`
+- `static/styles.css`
+- `CODEX_HANDOFF.md`
+
+### Verification
+
+- Ran the project test suite with the local virtualenv: `8 passed`.
+- Ran browser smoke tests against `http://localhost:8080/`:
+  - With fake camera permission allowed: camera reaches `Camera ready.` and captured image appears in receipt preview.
+  - With camera permission denied: modal shows the blocked-permission message, `Request permission again`, and the help text.
+
+### Known Risk / Follow-Up
+
+- Browser APIs cannot force camera permission after a user or browser has blocked it. The user may need to use the browser camera icon or site settings to allow camera access for `localhost:8080`, then click `Request permission again`.
+
 ## Files Modified
 
 - `static/index.html`

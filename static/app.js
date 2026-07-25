@@ -546,8 +546,10 @@ async function openCameraModal() {
     <div class="camera-modal-body">
       <video id="camera-video" class="camera-video" autoplay playsinline muted></video>
       <div id="camera-status" class="upload-status"></div>
+      <div id="camera-help" class="camera-help" hidden></div>
       <div class="actions">
         <button id="camera-capture" class="btn btn-primary" disabled>Capture photo</button>
+        <button id="camera-retry" class="btn btn-gold" hidden>Request permission again</button>
         <button id="camera-fallback" class="btn">Choose image</button>
         <button id="camera-cancel" class="btn btn-ghost">Cancel</button>
       </div>
@@ -562,22 +564,49 @@ async function openCameraModal() {
 
   const status = $("#camera-status");
   const video = $("#camera-video");
-  try {
-    if (!navigator.mediaDevices?.getUserMedia) throw new Error("Camera access is not supported by this browser.");
-    activeCameraStream = await navigator.mediaDevices.getUserMedia({
-      video: { facingMode: { ideal: "environment" } },
-      audio: false,
-    });
-    video.srcObject = activeCameraStream;
-    await video.play();
-    status.textContent = "Camera ready.";
-    $("#camera-capture").disabled = false;
-  } catch (e) {
-    status.textContent = `${e.message} You can still choose an image from this device.`;
-    status.classList.add("err");
-  }
+  const help = $("#camera-help");
+  const capture = $("#camera-capture");
+  const retry = $("#camera-retry");
+
+  const requestCamera = async () => {
+    stopCameraStream();
+    capture.disabled = true;
+    retry.hidden = true;
+    help.hidden = true;
+    help.textContent = "";
+    status.classList.remove("err");
+    status.textContent = "Requesting camera permission...";
+
+    try {
+      if (!navigator.mediaDevices?.getUserMedia) throw new Error("Camera access is not supported by this browser.");
+      activeCameraStream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: { ideal: "environment" } },
+        audio: false,
+      });
+      video.srcObject = activeCameraStream;
+      await video.play();
+      status.textContent = "Camera ready.";
+      capture.disabled = false;
+    } catch (e) {
+      const denied = e.name === "NotAllowedError" || e.name === "PermissionDeniedError";
+      const insecure = location.protocol !== "https:" && !["localhost", "127.0.0.1"].includes(location.hostname);
+      status.textContent = denied ? "Camera permission is blocked for this site." : e.message;
+      status.classList.add("err");
+      help.hidden = false;
+      help.textContent = denied
+        ? "Use the browser camera icon or site settings to allow camera access for localhost, then request permission again. You can also choose an image from this device."
+        : insecure
+          ? "Camera access requires HTTPS, except on localhost. Run the app on localhost or deploy over HTTPS."
+          : "You can still choose an image from this device.";
+      retry.hidden = false;
+    }
+  };
+
+  retry.onclick = requestCamera;
+  await requestCamera();
 
   $("#camera-capture").onclick = async () => {
+    if (!navigator.mediaDevices?.getUserMedia) throw new Error("Camera access is not supported by this browser.");
     const canvas = document.createElement("canvas");
     canvas.width = video.videoWidth || 1280;
     canvas.height = video.videoHeight || 720;
