@@ -1150,6 +1150,29 @@ Codex GPT-5.5 changed the Claude extraction indicator from an inline status to a
 
 - None expected; this is frontend state/visual handling only.
 
+## Latest Edit: README Mobile Demo Tip
+
+Codex GPT-5.5 added a README note encouraging reviewers to try the mobile camera flow.
+
+### What Changed
+
+- Added a `Mobile demo tip` under the live demo and video walkthrough links.
+- The note tells reviewers to open the live demo on a phone and use `Take photo` to scan a receipt into the workflow.
+
+### Files Modified
+
+- `README.md`
+- `CODEX_HANDOFF.md`
+
+### Verification
+
+- Docs-only change; no application code touched.
+- Confirmed the note appears near the top of the README.
+
+### Known Risk / Follow-Up
+
+- None.
+
 ## Latest Edit: README — video link + camera capture line
 
 Claude Code (Fable 5) applied two doc-only additions from a README review.

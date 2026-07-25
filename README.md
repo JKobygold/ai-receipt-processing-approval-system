@@ -7,6 +7,8 @@ A lightweight receipt workflow app where employees upload receipts, AI extracts 
 | Live demo | https://web-production-4df88.up.railway.app |
 | Video walkthrough | https://youtu.be/5GyN5knNdco |
 
+**Mobile demo tip:** open the live demo on a phone and use `Take photo` to scan a receipt directly into the workflow.
+
 ## Overview
 
 The app supports the full receipt lifecycle:
