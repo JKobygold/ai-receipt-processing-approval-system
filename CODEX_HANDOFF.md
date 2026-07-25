@@ -562,6 +562,29 @@ Codex GPT-5.5 expanded the README so it directly covers the take-home deliverabl
 
 - None. This was a documentation-only update.
 
+## Latest Edit: Railway Port Compatibility
+
+Codex GPT-5.5 updated the Docker entrypoint so the app can bind to Railway's injected `PORT`.
+
+### What Changed
+
+- Changed the Docker command from a fixed `--port 8000` to `--port ${PORT:-8000}`.
+- Local Docker still defaults to port `8000`.
+- Railway can now route traffic to the runtime-provided port.
+
+### Files Modified
+
+- `Dockerfile`
+- `CODEX_HANDOFF.md`
+
+### Verification
+
+- Ran the project test suite with the local virtualenv: `8 passed`.
+
+### Known Risk / Follow-Up
+
+- Railway's filesystem is ephemeral unless a volume is attached. The current SQLite setup is fine for a take-home demo, but production should use a Railway volume or managed database.
+
 ## Files Modified
 
 - `static/index.html`
