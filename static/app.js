@@ -294,16 +294,36 @@ function renderLists() {
 
 // ---------- preview frame ----------
 
+function fileTypeLabel(mimeType = "", name = "") {
+  const lowerName = (name || "").toLowerCase();
+  if (mimeType === "application/pdf" || lowerName.endsWith(".pdf")) return "PDF document";
+  if (mimeType === "image/jpeg" || /\.(jpe?g)$/i.test(name)) return "JPEG image";
+  if (mimeType === "image/png" || lowerName.endsWith(".png")) return "PNG image";
+  if (mimeType === "image/heic" || mimeType === "image/heif" || /\.(heic|heif)$/i.test(name)) return "HEIC image";
+  if (mimeType === "image/webp" || lowerName.endsWith(".webp")) return "WebP image";
+  if (mimeType === "image/gif" || lowerName.endsWith(".gif")) return "GIF image";
+  if (mimeType?.startsWith("image/")) return `${mimeType.split("/")[1].toUpperCase()} image`;
+  return mimeType || "Unknown file";
+}
+
+function fileTypeMeta(mimeType, name) {
+  return `<div class="file-type-meta">File type: <b>${escapeHtml(fileTypeLabel(mimeType, name))}</b></div>`;
+}
+
 function previewHtml(r) {
   if (!r) return `<div class="preview-empty">Upload a receipt — or select one from the table below — to preview it here.</div>`;
   if (r.mime_type === "application/pdf") {
     return `<div class="pdf-wrap">
       <iframe class="pdf-embed" src="/api/receipts/${r.id}/file#toolbar=0&navpanes=0" title="Receipt ${r.id}"></iframe>
       <a href="/api/receipts/${r.id}/file" target="_blank" class="pdf-open-link">Open full size ↗</a>
+      ${fileTypeMeta(r.mime_type, r.original_name)}
     </div>`;
   }
-  return `<img src="/api/receipts/${r.id}/file" alt="Receipt ${r.id}"
-    onerror="this.outerHTML='<div class=&quot;preview-fallback&quot;>🧾 ${escapeHtml(r.original_name)}<br>Preview isn\\'t supported for this format in your browser — the file uploaded fine and will still be processed.</div>'">`;
+  return `<div class="image-preview-wrap">
+    <img src="/api/receipts/${r.id}/file" alt="Receipt ${r.id}"
+      onerror="this.outerHTML='<div class=&quot;preview-fallback&quot;>🧾 ${escapeHtml(r.original_name)}<br>Preview isn\\'t supported for this format in your browser — the file uploaded fine and will still be processed.</div>'">
+    ${fileTypeMeta(r.mime_type, r.original_name)}
+  </div>`;
 }
 
 function showImportMode() {
@@ -891,8 +911,8 @@ function stageFile(file) {
   const isPdf = file.type === "application/pdf" || /\.pdf$/i.test(file.name);
   showPreviewMode("Receipt preview");
   $("#preview-frame").innerHTML = isPdf
-    ? `<div class="pdf-wrap"><iframe class="pdf-embed" src="${pendingUrl}#toolbar=0&navpanes=0" title="Staged receipt"></iframe></div>`
-    : `<img src="${pendingUrl}" alt="Staged receipt">`;
+    ? `<div class="pdf-wrap"><iframe class="pdf-embed" src="${pendingUrl}#toolbar=0&navpanes=0" title="Staged receipt"></iframe>${fileTypeMeta(file.type, file.name)}</div>`
+    : `<div class="image-preview-wrap"><img src="${pendingUrl}" alt="Staged receipt">${fileTypeMeta(file.type, file.name)}</div>`;
   $("#preview-actions").hidden = false;
   $("#extract-status").textContent = "";
   $("#fields-card").hidden = true;

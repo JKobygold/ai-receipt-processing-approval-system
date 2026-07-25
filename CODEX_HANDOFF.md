@@ -756,6 +756,37 @@ Codex GPT-5.5 fixed the deployed upload flow after a Railway redeploy exposed st
 
 - Any receipts uploaded before the volume was attached lived on the old ephemeral filesystem and may not be present in the new persistent database. New uploads should persist across future redeploys.
 
+## Latest Edit: Dynamic File Type Under Receipt Preview
+
+Codex GPT-5.5 added visible file-type metadata below receipt previews.
+
+### What Changed
+
+- Added a reusable file-type label helper for receipt previews.
+- The preview now dynamically shows `File type: ...` below the receipt for:
+  - Uploaded receipts from the API.
+  - Staged files before upload.
+  - PDF previews.
+  - Image previews.
+- Supported labels include PDF document, JPEG image, PNG image, HEIC image, WebP image, GIF image, generic image types, and unknown file.
+- The label appears in the main import preview, employee extraction modal, and manager review modal because they all reuse the same preview rendering path.
+
+### Files Modified
+
+- `static/app.js`
+- `static/styles.css`
+- `CODEX_HANDOFF.md`
+
+### Verification
+
+- Ran the project test suite with the local virtualenv: `8 passed`.
+- Confirmed the local server at `http://localhost:8080/` returned `200`.
+- Verified the static bundle contains `fileTypeLabel` and `.file-type-meta`.
+
+### Known Risk / Follow-Up
+
+- None.
+
 ## Files Modified
 
 - `static/index.html`
