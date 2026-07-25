@@ -1170,7 +1170,8 @@ $("#extract-btn").onclick = async () => {
       await refresh();
     }
     if (!id) { $("#extract-btn").disabled = false; return; }
-    status.textContent = "Sending to Claude…";
+    status.className = "upload-status claude-status";
+    status.innerHTML = `<span class="claude-spinner" aria-hidden="true">C</span><span>Sending to Claude...</span>`;
     await api(`/api/receipts/${id}/extract`, { method: "POST" });
     // Follow the extraction through: uploaded -> processing -> review/failed.
     for (let i = 0; i < 45; i++) {

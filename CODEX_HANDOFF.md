@@ -1096,6 +1096,32 @@ Codex GPT-5.5 simplified the receipt stage tracker styling so table rows are eas
 
 - None expected; CSS-only change.
 
+## Latest Edit: Prominent Claude Sending Status
+
+Codex GPT-5.5 made the `Sending to Claude...` extraction status more visible in the receipt preview flow.
+
+### What Changed
+
+- Changed the extraction send state from plain small text to a larger glowing status pill.
+- Added a spinning Claude-style circular mark next to the status text.
+- Scoped the visual treatment to the `Sending to Claude...` state only; normal upload/status messages stay unchanged.
+
+### Files Modified
+
+- `static/app.js`
+- `static/styles.css`
+- `CODEX_HANDOFF.md`
+
+### Verification
+
+- Ran the project test suite with the local virtualenv: `8 passed`.
+- Ran `node --check static/app.js` successfully.
+- Confirmed the local server at `http://localhost:8080/` returned `200`.
+
+### Known Risk / Follow-Up
+
+- None expected; this is a focused frontend polish change.
+
 ## Latest Edit: README — video link + camera capture line
 
 Claude Code (Fable 5) applied two doc-only additions from a README review.
