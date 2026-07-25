@@ -587,7 +587,14 @@ body {
 .rt-currency { flex: 0.8; min-width: 68px; font-size: 12px; color: var(--ink-soft); font-weight: 600; text-align: center; white-space: nowrap; }
 .rt-tax { flex: 0.8; min-width: 64px; font-size: 12px; text-align: right; color: var(--muted); white-space: nowrap; }
 .rt-items { flex: 0.6; min-width: 52px; font-size: 12px; text-align: center; color: var(--ink-soft); font-weight: 600; white-space: nowrap; cursor: help; }
-.rt-stage { flex: 2.4; min-width: 240px; display: flex; justify-content: flex-end; align-items: center; }
+.rt-stage {
+  flex: 2.2;
+  min-width: 210px;
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  overflow: hidden;
+}
 .r-empty { padding: 18px 14px; font-size: 13px; color: var(--muted); }
 .rt-actions { width: 218px; flex-shrink: 0; display: flex; justify-content: flex-end; gap: 6px; }
 .rt-audit { padding: 4px 9px; font-size: 11px; white-space: nowrap; }
@@ -670,24 +677,34 @@ body {
 @media (max-width: 700px) { .rx-grid { grid-template-columns: repeat(2, 1fr); } }
 .rt-flags { margin-top: 2px; }
 
-/* ─── Stage tracker: Uploaded → Processing → Review → Submitted ─── */
-.stage-track { display: flex; align-items: center; gap: 2px; }
+/* ─── Stage tracker: Uploaded -> Processing -> Review -> Submitted ─── */
+.stage-track {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 2px;
+  flex-wrap: wrap;
+  max-width: 100%;
+  line-height: 1.2;
+}
 .stage {
   font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.3px;
   padding: 2px 6px; border-radius: 99px; white-space: nowrap;
-  background: #f1ece2; color: #b3a888; border: 1px solid var(--line-soft);
+  background: #eef1f4; color: #8a94a3; border: 1px solid #dce2e8;
 }
-.stage-arrow { font-size: 9px; color: var(--line); font-style: normal; }
-.stage.done { border-color: transparent; }
-.stage.done.s-uploaded   { background: #e9eef5; color: var(--navy-500); }
-.stage.done.s-processing { background: var(--gold-100); color: var(--gold-700); }
-.stage.done.s-review     { background: #f4ead2; color: var(--warn); }
-.stage.done.s-submitted  { background: #e3efe6; color: var(--green); }
-.stage.current { border-color: transparent; box-shadow: 0 0 0 1px currentColor inset; }
-.stage.current.s-uploaded   { background: var(--navy-500); color: #fdf8ea; }
-.stage.current.s-processing { background: var(--gold-500); color: var(--navy-900); animation: pulse 1.2s ease-in-out infinite; }
-.stage.current.s-review     { background: var(--warn); color: #fffdf7; }
-.stage.current.s-submitted  { background: var(--green); color: #fffdf7; }
+.stage-arrow { font-size: 9px; color: #c8ced6; font-style: normal; }
+.stage.done {
+  background: #e5e9ee;
+  color: #737f8e;
+  border-color: #d8dee6;
+}
+.stage.current {
+  background: var(--navy-600);
+  color: #fffdf7;
+  border-color: var(--navy-700);
+  box-shadow: 0 0 0 1px rgba(28,44,68,0.08) inset;
+}
+.stage.current.s-processing { animation: pulse 1.2s ease-in-out infinite; }
 @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.55; } }
 
 .outcome { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.4px; padding: 3px 9px; border-radius: 99px; margin-left: 5px; white-space: nowrap; border: 1px solid transparent; }
@@ -809,6 +826,7 @@ body {
   .rt-stage { min-width: 0; }
   .stage:not(.current) { display: none; }   /* on small screens show only the active stage */
   .stage-arrow { display: none; }
+  .stage-track { justify-content: flex-start; }
 }
 @media (max-width: 620px) {
   .login-card { padding: 32px 20px 26px; }
@@ -880,6 +898,7 @@ body {
     grid-row: 3;
     min-width: 0;
     justify-content: flex-start;
+    overflow: visible;
   }
   #employee-table .rt-actions {
     grid-column: 4;
@@ -935,6 +954,7 @@ body {
     grid-row: 3;
     min-width: 0;
     justify-content: flex-start;
+    overflow: visible;
   }
   #manager-done-table .rt-actions {
     grid-column: 3;

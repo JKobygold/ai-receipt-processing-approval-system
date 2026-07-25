@@ -1070,6 +1070,32 @@ Codex GPT-5.5 updated the employee receipt preview flow so employees can restart
 
 - None expected; this is frontend state handling only.
 
+## Latest Edit: Stage Tracker Readability
+
+Codex GPT-5.5 simplified the receipt stage tracker styling so table rows are easier to read.
+
+### What Changed
+
+- Changed completed and inactive workflow stage pills to neutral grey.
+- Changed the current workflow stage pill to blue across all statuses.
+- Kept final approved/rejected outcomes visually distinct.
+- Allowed the stage tracker to wrap inside its own column so it does not cover receipt details.
+- Preserved the mobile behavior where only the current stage is shown.
+
+### Files Modified
+
+- `static/styles.css`
+- `CODEX_HANDOFF.md`
+
+### Verification
+
+- Ran the project test suite with the local virtualenv: `8 passed`.
+- Confirmed the local server at `http://localhost:8080/` returned `200`.
+
+### Known Risk / Follow-Up
+
+- None expected; CSS-only change.
+
 ## Latest Edit: README — video link + camera capture line
 
 Claude Code (Fable 5) applied two doc-only additions from a README review.
