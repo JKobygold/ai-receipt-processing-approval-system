@@ -370,7 +370,7 @@ function showClaudeOverlay(message = "Sending to Claude...") {
   }
   overlay.innerHTML = `
     <div class="claude-popup" role="status" aria-live="assertive">
-      <span class="claude-spinner claude-popup-spinner" aria-hidden="true">C</span>
+      <img src="/claude-logo.svg" alt="" class="claude-mark" aria-hidden="true">
       <div>
         <div class="claude-popup-title">${escapeHtml(message)}</div>
         <div class="claude-popup-copy">Claude is reading the receipt and returning structured expense data.</div>

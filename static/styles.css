@@ -437,6 +437,13 @@ body {
   height: 46px;
   font-size: 23px;
 }
+/* The Claude starburst mark (static/claude-logo.svg, brand coral #D97757) */
+.claude-mark {
+  width: 48px;
+  height: 48px;
+  animation: claudeSpin 2.4s linear infinite;
+  filter: drop-shadow(0 0 10px rgba(217, 119, 87, 0.45));
+}
 .claude-popup-title {
   color: var(--navy-800);
   font-family: var(--serif);

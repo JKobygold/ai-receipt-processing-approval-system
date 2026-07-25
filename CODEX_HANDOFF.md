@@ -1250,3 +1250,29 @@ Claude Code (Fable 5) swapped the random-receipt pool to real-world photos per J
 ### Known Risk / Follow-Up
 
 - The photos are real-world receipts sourced from the public web (no watermarks), used as demo fixtures. For a fully license-bulletproof public repo, swap for a CC-licensed receipt dataset — cosmetic, not blocking.
+
+## Latest Edit: Popup Verified Working + Real Claude Logo
+
+Claude Code (Fable 5) investigated "Codex struggling with the extraction popup", then swapped the spinner for the genuine Claude mark.
+
+### What Changed
+
+- **Verification finding (for Codex):** the popup was never broken. Driven end-to-end in a real browser against live Claude extraction: overlay appears at ~0.5s, stays up the full ~6s extraction, closes exactly when the Extracted-details modal opens (which showed a correct Best Buy extraction from a crumpled receipt photo). With the mock provider the popup only flashes ~300ms because extraction is instant — that is why it looked absent in local checks. Codex's own logs note browser automation was unavailable in its thread; nothing to fix.
+- Replaced the letter-"C" spinner with the genuine Claude starburst mark (`static/claude-logo.svg`, brand coral #D97757, sourced from the public lobehub icon set), slow-spin + coral glow.
+
+### Files Modified
+
+- `static/claude-logo.svg` (new)
+- `static/app.js`
+- `static/styles.css`
+- `CODEX_HANDOFF.md`
+
+### Verification
+
+- `node --check` clean; test suite `8 passed`.
+- Screenshot of the popup with the logo via headless Chrome (overlay invoked directly — no API spend).
+- Deployed to Railway.
+
+### Known Risk / Follow-Up
+
+- The overlay has no cancel/escape; a stalled network traps the user behind it for up to ~90s (polling cap). Fine for the demo; add a cancel if this ever ships.
