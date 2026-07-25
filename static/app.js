@@ -306,24 +306,30 @@ function fieldsHtml(r, audit) {
       <div class="receipt-meta-cell"><span>File</span><b>${escapeHtml(r.original_name)}</b></div>
       <div class="receipt-meta-cell"><span>Last updated</span><b>${formatTimestamp(r.updated_at)}</b></div>
     </div>
-    <form id="edit-form" onsubmit="return false;">
-      <div class="fields-grid">
-        ${field("Receipt name", "receipt_name", r.receipt_name || receiptDisplayName(r))}
-        ${field("Merchant name", "merchant", r.merchant)}
-        ${field("Purchase date", "purchase_date", r.purchase_date, "date")}
-        ${field("Total amount", "total_amount", r.total_amount, "number")}
-        ${field("Currency", "currency", r.currency)}
-        ${field("Tax", "tax_amount", r.tax_amount, "number")}
-      </div>
-      <div class="li-block">
-        <div class="li-head">Line items ${confBadge(conf, "line_items")}
-          ${editable ? `<button type="button" id="li-add" class="btn btn-ghost">+ add line</button>` : ""}</div>
-        <table class="li-table" id="li-table">
-          <thead><tr><th>Description</th><th>Qty</th><th>Unit</th><th>Amount</th>${editable ? "<th></th>" : ""}</tr></thead>
-          <tbody>${(r.line_items || []).map((li) => lineItemRow(li, editable)).join("")}</tbody>
-        </table>
-      </div>
-    </form>
+    <div class="employee-review-grid">
+      <form id="edit-form" onsubmit="return false;">
+        <div class="fields-grid">
+          ${field("Receipt name", "receipt_name", r.receipt_name || receiptDisplayName(r))}
+          ${field("Merchant name", "merchant", r.merchant)}
+          ${field("Purchase date", "purchase_date", r.purchase_date, "date")}
+          ${field("Total amount", "total_amount", r.total_amount, "number")}
+          ${field("Currency", "currency", r.currency)}
+          ${field("Tax", "tax_amount", r.tax_amount, "number")}
+        </div>
+        <div class="li-block">
+          <div class="li-head">Line items ${confBadge(conf, "line_items")}
+            ${editable ? `<button type="button" id="li-add" class="btn btn-ghost">+ add line</button>` : ""}</div>
+          <table class="li-table" id="li-table">
+            <thead><tr><th>Description</th><th>Qty</th><th>Unit</th><th>Amount</th>${editable ? "<th></th>" : ""}</tr></thead>
+            <tbody>${(r.line_items || []).map((li) => lineItemRow(li, editable)).join("")}</tbody>
+          </table>
+        </div>
+      </form>
+      <aside class="modal-receipt-preview" aria-label="Receipt preview for comparison">
+        <div class="li-head">Receipt preview</div>
+        <div class="preview-frame">${previewHtml(r)}</div>
+      </aside>
+    </div>
     <div class="actions">${actions}<span id="detail-msg"></span></div>
     ${r.status !== "approved" ? `
     <div class="msg-manager">

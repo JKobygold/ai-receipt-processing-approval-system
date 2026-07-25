@@ -406,6 +406,32 @@ Codex GPT-5.5 moved employee extracted-details review into a popup and added edi
 
 - Existing receipts will have `receipt_name = NULL` until renamed, so the UI falls back to merchant, then original filename.
 
+## Latest Edit: Receipt Preview Inside AI Extraction Popup
+
+Codex GPT-5.5 added the source receipt preview into the employee AI extraction review popup.
+
+### What Changed
+
+- The `Extracted details` modal now includes a receipt preview panel in the same popup.
+- The extracted fields and line items sit next to the receipt preview on desktop for easier comparison.
+- On smaller screens, the preview stacks below the editable fields.
+- PDF previews use the existing embedded PDF viewer; image receipts use the existing image preview path.
+
+### Files Modified
+
+- `static/app.js`
+- `static/styles.css`
+- `CODEX_HANDOFF.md`
+
+### Verification
+
+- Ran the project test suite with the local virtualenv: `8 passed`.
+- Confirmed the local server at `http://localhost:8080/` returned `200`.
+
+### Known Risk / Follow-Up
+
+- None. This reuses the existing `previewHtml` rendering path already used by the main receipt preview.
+
 ## Files Modified
 
 - `static/index.html`

@@ -635,6 +635,25 @@ body {
   border-top: 4px solid var(--gold-600); padding: 18px 22px;
 }
 .modal-box.employee-detail-modal { max-width: 1040px; }
+.employee-review-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.08fr) minmax(300px, 0.92fr);
+  gap: 18px;
+  align-items: start;
+}
+.modal-receipt-preview {
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--parchment);
+  padding: 10px;
+}
+.modal-receipt-preview .preview-frame {
+  min-height: 420px;
+  max-height: 62vh;
+  overflow: auto;
+  background: #fffdf6;
+}
+.modal-receipt-preview .pdf-embed { height: 520px; }
 .modal-head { display: flex; align-items: center; gap: 10px; margin-bottom: 6px; }
 .modal-title { font-family: var(--serif); font-size: 17px; font-weight: 600; color: var(--navy-700); flex: 1; }
 .modal-close {
@@ -654,6 +673,7 @@ body {
   .howto-steps { grid-template-columns: repeat(2, 1fr); }
   .work-grid { grid-template-columns: 1fr; }
   .fields-grid { grid-template-columns: repeat(2, 1fr); }
+  .employee-review-grid { grid-template-columns: 1fr; }
   .modal-grid { grid-template-columns: 1fr; }
   .rt-tax, .rt-currency, .rt-items { display: none; }
   .rt-actions { width: 142px; }
