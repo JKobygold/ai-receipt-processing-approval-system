@@ -912,3 +912,35 @@ Codex GPT-5.5 improved the manager `Recently reviewed` table on mobile only.
 ### Known Risk / Follow-Up
 
 - None.
+
+## Latest Edit: Mobile Employee Receipts Readability
+
+Codex GPT-5.5 applied the mobile stacked-row treatment to the employee `My receipts` table.
+
+### What Changed
+
+- Added mobile-only CSS scoped to `#employee-table`.
+- On screens under 620px:
+  - The table header hides.
+  - Each receipt row becomes a compact stacked grid.
+  - Checkbox and receipt ID remain accessible on the left.
+  - Merchant/file text can wrap instead of being truncated.
+  - Date and total get their own readable row.
+  - Stage spans the bottom-left.
+  - Audit/Edit/Delete controls sit on the bottom-right and wrap as needed.
+- Desktop layout and manager tables are unchanged.
+
+### Files Modified
+
+- `static/styles.css`
+- `CODEX_HANDOFF.md`
+
+### Verification
+
+- Ran the project test suite with the local virtualenv: `8 passed`.
+- Confirmed the local server at `http://localhost:8080/` returned `200`.
+- Verified CSS selectors target `#employee-table` specifically.
+
+### Known Risk / Follow-Up
+
+- None.
