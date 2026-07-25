@@ -826,4 +826,56 @@ body {
   .rt-actions { width: 126px; flex-wrap: wrap; }
   .audit-event { grid-template-columns: 1fr; gap: 3px; }
   .audit-event p { grid-column: 1; }
+  #manager-done-table .r-table-header { display: none; }
+  #manager-done-table .r-table-row {
+    display: grid;
+    grid-template-columns: 34px minmax(0, 1fr) auto;
+    gap: 6px 10px;
+    align-items: start;
+    padding: 12px;
+    cursor: pointer;
+  }
+  #manager-done-table .rt-id { grid-column: 1; grid-row: 1; color: var(--navy-600); }
+  #manager-done-table .rt-merchant {
+    grid-column: 2 / 4;
+    grid-row: 1;
+    white-space: normal;
+    overflow: visible;
+    text-overflow: clip;
+    color: var(--navy-900);
+    line-height: 1.25;
+  }
+  #manager-done-table .rt-merchant .rt-file {
+    white-space: normal;
+    color: var(--ink-soft);
+    margin-top: 2px;
+  }
+  #manager-done-table .rt-date {
+    display: block;
+    grid-column: 2;
+    grid-row: 2;
+    min-width: 0;
+    color: var(--ink-soft);
+    font-weight: 600;
+  }
+  #manager-done-table .rt-total {
+    grid-column: 3;
+    grid-row: 2;
+    min-width: 0;
+    text-align: right;
+    color: var(--green-bright);
+  }
+  #manager-done-table .rt-stage {
+    grid-column: 1 / 3;
+    grid-row: 3;
+    min-width: 0;
+    justify-content: flex-start;
+  }
+  #manager-done-table .rt-actions {
+    grid-column: 3;
+    grid-row: 3;
+    width: auto;
+    justify-content: flex-end;
+  }
+  #manager-done-table .rt-audit { padding: 5px 10px; }
 }
