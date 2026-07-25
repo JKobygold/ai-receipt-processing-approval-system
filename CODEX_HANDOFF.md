@@ -1299,3 +1299,26 @@ Claude Code (Fable 5) investigated "Codex struggling with the extraction popup",
 ### Known Risk / Follow-Up
 
 - The overlay has no cancel/escape; a stalled network traps the user behind it for up to ~90s (polling cap). Fine for the demo; add a cancel if this ever ships.
+
+## Latest Edit: Mobile — Login Tiles Side by Side + Pending Approvals Cards
+
+Claude Code (Fable 5) fixed two mobile-layout issues Jacob reported.
+
+### What Changed
+
+- Login: the ≤620px rule collapsed the Employee/Manager profile picker to one column; now stays two-across with smaller orbs/typography so both tiles fit a phone.
+- Manager "Pending approvals": the mobile card-grid rules existed only for `#employee-table` and `#manager-done-table` — `#manager-table` was missed entirely, so pending rows fell back to the cramped desktop flex layout. Every mobile rule for `#manager-done-table` now also targets `#manager-table` (selector expansion inside the media query only; desktop untouched).
+
+### Files Modified
+
+- `static/styles.css`
+- `CODEX_HANDOFF.md`
+
+### Verification
+
+- Screenshots at a true 390px viewport via CDP device emulation (headless Chrome clamps plain window width to 500px, so emulation is required): login tiles side by side; a live pending row (#73, submitted for this test) renders as a clean card with SUBMITTED pill + Audit, row tap still opens the approval modal.
+- Test suite `8 passed`; deployed to Railway.
+
+### Known Risk / Follow-Up
+
+- None. CSS-only, scoped to the ≤620px media query.
