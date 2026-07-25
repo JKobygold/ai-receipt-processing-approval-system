@@ -352,6 +352,9 @@ function setPreviewActions({ showExtract, showAnother = true, hint = "", statusT
 
   extract.hidden = !showExtract;
   another.hidden = !showAnother;
+  // When it's the only action (post-extraction/post-submit), make it the
+  // prominent CTA; next to the gold extract button it stays secondary.
+  another.classList.toggle("btn-primary", showAnother && !showExtract);
   hintEl.hidden = !hint;
   hintEl.textContent = hint;
   status.textContent = statusText;
