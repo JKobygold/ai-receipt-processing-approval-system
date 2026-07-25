@@ -1092,3 +1092,28 @@ Claude Code (Fable 5) applied two doc-only additions from a README review.
 
 - A "tested against a messy real-world corpus (crumpled/angled/low-light)" claim — no evidence that specific testing was done, so it would be an unverifiable claim. Add only if actually performed.
 - `DESIGN_NOTES.md` — does not exist in the repo; not fabricated.
+
+## Latest Edit: "Add another receipt" Made Visibly a Button
+
+Claude Code (Fable 5) fixed the reported "can't add another receipt without refreshing" issue.
+
+### What Changed
+
+- Root cause: the reset control already existed (`#try-another-btn`) but was styled `btn-ghost` — borderless muted text under the preview that read as a heading, so users didn't recognize it as clickable and refreshed instead.
+- Now a bordered `btn` with a "＋" prefix; `setPreviewActions` promotes it to `btn-primary` (solid navy) whenever it is the only action (post-extraction / post-submit), keeping it secondary next to the gold "Submit for AI extraction" CTA.
+
+### Files Modified
+
+- `static/index.html`
+- `static/app.js`
+- `CODEX_HANDOFF.md`
+
+### Verification
+
+- Reproduced the full flow headlessly via Chrome DevTools Protocol against a mock-provider instance: stage random receipt → Submit for AI extraction → Submit for approval → button visible as primary CTA → click resets card to "Import file". State assertions + screenshots at each step.
+- `node --check` clean; test suite: `8 passed`.
+- Deployed to Railway (`railway up`); confirmed the new bundle is serving on the live domain and `/api/meta` still reports `claude`.
+
+### Known Risk / Follow-Up
+
+- None. Frontend-only styling/affordance change; no workflow logic touched.
