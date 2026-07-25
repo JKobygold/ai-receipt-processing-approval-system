@@ -459,6 +459,48 @@ Codex GPT-5.5 updated the employee submit flow so the workspace is ready for the
 
 - None. Save/retry/override still keep the receipt detail popup open; only successful approval submission resets the import screen.
 
+## Latest Edit: Clickable AI Confidence Explanations
+
+Codex GPT-5.5 made the AI confidence scores interactive and explanatory.
+
+### What Changed
+
+- Every AI-extracted field in the review modal now shows a confidence badge:
+  - Merchant name
+  - Purchase date
+  - Total amount
+  - Currency
+  - Tax
+  - Line items
+- Confidence badges are now clickable buttons instead of static text.
+- Clicking a badge opens a small explanation popup over the existing receipt review modal.
+- The popup explains:
+  - The score value.
+  - Whether it is high, medium, low, or unavailable.
+  - That the number comes from the AI extractor's structured JSON response at `confidence.<field>`, scored from `0.0` to `1.0`.
+  - What evidence the AI uses for that specific field.
+- Missing confidence values display as `N/A` and still open an explanation.
+- Manager read-only review fields also retain clickable confidence badges.
+
+### Files Modified
+
+- `static/app.js`
+- `static/styles.css`
+- `CODEX_HANDOFF.md`
+
+### Verification
+
+- Ran the project test suite with the local virtualenv: `8 passed`.
+- Confirmed the local server at `http://localhost:8080/` returned `200`.
+- Verified the confidence UI hooks exist in the static bundle:
+  - `data-conf-field`
+  - `openConfidenceModal`
+  - `.confidence-overlay`
+
+### Known Risk / Follow-Up
+
+- The AI returns one score for `line_items` as a whole rather than separate scores per individual line item, matching the current extraction schema.
+
 ## Files Modified
 
 - `static/index.html`

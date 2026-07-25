@@ -52,11 +52,77 @@ function formatTimestamp(value) {
   });
 }
 
-function confBadge(conf, field) {
-  if (!conf || conf[field] === undefined) return "";
-  const c = conf[field];
+const CONFIDENCE_HELP = {
+  merchant: {
+    label: "Merchant name",
+    basis: "The AI looks for the store name in the receipt header, logo text, payment descriptor, or repeated merchant text.",
+  },
+  purchase_date: {
+    label: "Purchase date",
+    basis: "The AI compares visible date-like text and favors the date most likely attached to the purchase or transaction.",
+  },
+  total_amount: {
+    label: "Total amount",
+    basis: "The AI looks for the final amount charged, usually near labels like total, amount due, paid, or card charge.",
+  },
+  currency: {
+    label: "Currency",
+    basis: "The AI infers currency from printed symbols, ISO codes, merchant locale, and amount formatting.",
+  },
+  tax_amount: {
+    label: "Tax",
+    basis: "The AI looks for explicit tax, VAT, GST, or sales tax lines and avoids confusing tax with subtotal or total.",
+  },
+  line_items: {
+    label: "Line items",
+    basis: "The AI scores the extracted item list as a whole based on row readability, quantities, prices, and whether the item totals match the receipt.",
+  },
+};
+
+function confBadge(conf, field, label = CONFIDENCE_HELP[field]?.label || field) {
+  const raw = conf && typeof conf[field] === "number" ? conf[field] : null;
+  if (raw === null) {
+    return `<button type="button" class="conf conf-na" data-conf-field="${field}" data-conf-label="${escapeHtml(label)}" data-conf-score="" title="AI confidence details">N/A</button>`;
+  }
+  const c = Math.max(0, Math.min(1, raw));
   const cls = c >= 0.9 ? "conf-high" : c >= 0.7 ? "conf-mid" : "conf-low";
-  return `<span class="conf ${cls}" title="AI confidence">${Math.round(c * 100)}%</span>`;
+  return `<button type="button" class="conf ${cls}" data-conf-field="${field}" data-conf-label="${escapeHtml(label)}" data-conf-score="${c}" title="AI confidence details">${Math.round(c * 100)}%</button>`;
+}
+
+function confidenceTier(score) {
+  if (score === null) return "No score";
+  if (score >= 0.9) return "High confidence";
+  if (score >= 0.7) return "Medium confidence";
+  return "Low confidence";
+}
+
+function openConfidenceModal(field, label, scoreValue) {
+  const score = scoreValue === "" ? null : Number(scoreValue);
+  const help = CONFIDENCE_HELP[field] || { basis: "The AI rated this field from evidence visible in the receipt." };
+  const displayScore = score === null ? "N/A" : `${Math.round(score * 100)}%`;
+  let overlay = $("#conf-overlay");
+  if (!overlay) {
+    document.body.insertAdjacentHTML("beforeend", `<div id="conf-overlay" class="confidence-overlay" hidden></div>`);
+    overlay = $("#conf-overlay");
+  }
+  overlay.innerHTML = `
+    <div class="confidence-card" role="dialog" aria-modal="true" aria-labelledby="confidence-title">
+      <div class="modal-head">
+        <span id="confidence-title" class="modal-title">${escapeHtml(label)} confidence</span>
+        <button type="button" class="modal-close conf-close" title="Close">✕</button>
+      </div>
+      <div class="confidence-score">${displayScore}</div>
+      <p><b>${confidenceTier(score)}.</b> This number comes from the receipt-processing AI's structured JSON response at <code>confidence.${escapeHtml(field)}</code>, scored from 0.0 to 1.0.</p>
+      <p>${escapeHtml(help.basis)}</p>
+      <p>Use this as a review signal, not a guarantee. Lower scores mean the field deserves a closer look against the receipt preview.</p>
+    </div>`;
+  overlay.hidden = false;
+  overlay.querySelector(".conf-close").focus();
+}
+
+function closeConfidenceModal() {
+  const overlay = $("#conf-overlay");
+  if (overlay) overlay.hidden = true;
 }
 
 function receiptDisplayName(r) {
@@ -273,7 +339,7 @@ function fieldsHtml(r, audit) {
 
   const field = (label, name, value, type = "text") => `
     <div class="field ${lowConf(conf, name) ? "flagged" : ""}">
-      <label>${label} ${confBadge(conf, name)}</label>
+      <label>${label} ${name === "receipt_name" ? "" : confBadge(conf, name, label)}</label>
       <input class="field-input" name="${name}" type="${type}" step="any" value="${escapeHtml(value ?? "")}" ${d}>
     </div>`;
 
@@ -317,7 +383,7 @@ function fieldsHtml(r, audit) {
           ${field("Tax", "tax_amount", r.tax_amount, "number")}
         </div>
         <div class="li-block">
-          <div class="li-head">Line items ${confBadge(conf, "line_items")}
+          <div class="li-head">Line items ${confBadge(conf, "line_items", "Line items")}
             ${editable ? `<button type="button" id="li-add" class="btn btn-ghost">+ add line</button>` : ""}</div>
           <table class="li-table" id="li-table">
             <thead><tr><th>Description</th><th>Qty</th><th>Unit</th><th>Amount</th>${editable ? "<th></th>" : ""}</tr></thead>
@@ -475,7 +541,7 @@ async function openModal(id) {
           ${ro("Tax", "tax_amount", r.tax_amount)}
         </div>
         <div class="li-block">
-          <div class="li-head">Line items ${confBadge(conf, "line_items")}</div>
+          <div class="li-head">Line items ${confBadge(conf, "line_items", "Line items")}</div>
           <table class="li-table"><thead><tr><th>Description</th><th>Qty</th><th>Unit</th><th>Amount</th></tr></thead>
             <tbody>${(r.line_items || []).map((li) => lineItemRow(li, false)).join("")}</tbody>
           </table>
@@ -756,6 +822,19 @@ function showLogin() {
 }
 
 document.addEventListener("click", (e) => {
+  const confBtn = e.target.closest("[data-conf-field]");
+  if (confBtn) {
+    e.preventDefault();
+    e.stopPropagation();
+    openConfidenceModal(confBtn.dataset.confField, confBtn.dataset.confLabel, confBtn.dataset.confScore);
+    return;
+  }
+  if (e.target.closest(".conf-close") || e.target.id === "conf-overlay") {
+    e.preventDefault();
+    e.stopPropagation();
+    closeConfidenceModal();
+    return;
+  }
   const bulkDeleteBtn = e.target.closest("#delete-selected-btn");
   if (bulkDeleteBtn) {
     e.preventDefault();
