@@ -585,6 +585,36 @@ Codex GPT-5.5 updated the Docker entrypoint so the app can bind to Railway's inj
 
 - Railway's filesystem is ephemeral unless a volume is attached. The current SQLite setup is fine for a take-home demo, but production should use a Railway volume or managed database.
 
+## Latest Edit: Railway Deployment
+
+Codex GPT-5.5 deployed the app to Railway and documented the live URL.
+
+### What Changed
+
+- Created Railway project `receipt-approval`.
+- Created Railway service `web`.
+- Set production variables:
+  - `ANTHROPIC_API_KEY` from the local `.env` file, without printing the secret.
+  - `RECEIPT_AI_PROVIDER=claude`.
+- Deployed commit `953e5da` to Railway.
+- Generated the Railway public domain: `https://web-production-4df88.up.railway.app`.
+- Added the live demo URL to the README.
+
+### Files Modified
+
+- `README.md`
+- `CODEX_HANDOFF.md`
+
+### Verification
+
+- Railway deployment `9c4e89de-cc67-4b9e-aada-9b3766ee8aa6` reported `SUCCESS`.
+- Verified homepage: `GET /` returned `200`.
+- Verified metadata: `GET /api/meta` returned `200` with `{"ai_provider":"claude"}`.
+
+### Known Risk / Follow-Up
+
+- Railway filesystem is ephemeral unless a volume is attached. Uploaded receipts and SQLite data may reset across redeploys/restarts; acceptable for a take-home demo, but production should attach persistent storage or move to Postgres/object storage.
+
 ## Files Modified
 
 - `static/index.html`

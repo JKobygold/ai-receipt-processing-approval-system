@@ -4,6 +4,8 @@ A lightweight web app for expense receipts: employees upload a receipt (image or
 
 **Status flow:** `Uploaded → Processing → Review → Submitted → Approved / Rejected` (plus a retryable `Failed` state; rejected receipts can be edited and resubmitted).
 
+**Live demo:** https://web-production-4df88.up.railway.app
+
 ## Features
 
 **Employee workflow**
@@ -44,6 +46,10 @@ A lightweight web app for expense receipts: employees upload a receipt (image or
 - **Agentic coordination docs** documenting how AI-agent edits were tracked during development.
 
 ## Setup
+
+### Live Railway deployment
+
+The app is deployed on Railway at https://web-production-4df88.up.railway.app. The Railway service has `ANTHROPIC_API_KEY` and `RECEIPT_AI_PROVIDER=claude` configured for live receipt extraction.
 
 ### Run locally
 
