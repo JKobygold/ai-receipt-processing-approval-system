@@ -15,13 +15,19 @@ The app supports the full receipt lifecycle:
 
 A retryable `Failed` state is also included for extraction issues.
 
+## Claude-Powered Receipt Extraction
+
+When `ANTHROPIC_API_KEY` is configured, uploaded receipt images/PDFs are sent to the Anthropic Claude API for extraction. Claude returns structured JSON for merchant, purchase date, total, currency, tax, and line items, plus confidence metadata used in the review UI.
+
+If no API key is set, the app automatically uses a deterministic mock extractor so the workflow can still be run and tested locally.
+
 ## Features
 
 | Area | Included |
 |---|---|
 | Employee workflow | Upload receipts, view processing status, review/edit extracted fields, submit for manager approval |
 | Manager workflow | Review pending submissions, approve receipts, reject with required comments |
-| AI extraction | Merchant, purchase date, total, currency, tax, and line items when available |
+| Claude AI extraction | Sends uploaded receipts to Claude when configured; extracts merchant, purchase date, total, currency, tax, and line items when available |
 | Import methods | Drag-and-drop, file picker, sample receipt import, and phone/computer camera capture |
 | Mobile support | Responsive employee and manager views, with mobile-friendly receipt upload and camera capture |
 | Review support | Field confidence scores, confidence explanations, receipt preview, duplicate detection, retry, and audit log |

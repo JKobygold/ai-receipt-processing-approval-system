@@ -1019,6 +1019,31 @@ Codex GPT-5.5 added a concise README feature note for mobile usability.
 
 - None.
 
+## Latest Edit: README Claude Extraction Prominence
+
+Codex GPT-5.5 made the Claude receipt-processing path more prominent in the README.
+
+### What Changed
+
+- Added a dedicated `Claude-Powered Receipt Extraction` section near the top of the README.
+- Clarified that uploaded receipt images/PDFs are sent to the Anthropic Claude API when `ANTHROPIC_API_KEY` is configured.
+- Clarified that Claude returns structured JSON plus confidence metadata for the review UI.
+- Renamed the feature table row from `AI extraction` to `Claude AI extraction`.
+
+### Files Modified
+
+- `README.md`
+- `CODEX_HANDOFF.md`
+
+### Verification
+
+- Docs-only change; no application code touched.
+- Confirmed the Claude extraction section appears before the feature table.
+
+### Known Risk / Follow-Up
+
+- None.
+
 ## Latest Edit: README — video link + camera capture line
 
 Claude Code (Fable 5) applied two doc-only additions from a README review.
