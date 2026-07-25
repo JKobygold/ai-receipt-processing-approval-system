@@ -615,6 +615,47 @@ Codex GPT-5.5 deployed the app to Railway and documented the live URL.
 
 - Railway filesystem is ephemeral unless a volume is attached. Uploaded receipts and SQLite data may reset across redeploys/restarts; acceptable for a take-home demo, but production should attach persistent storage or move to Postgres/object storage.
 
+## Latest Edit: Submission Audit Button + Manager Response Log
+
+Codex GPT-5.5 added an explicit submission audit popup for employees and managers.
+
+### What Changed
+
+- Added an `Audit` button to receipt rows.
+- The `Audit` button opens a popup showing:
+  - Submitted time.
+  - Manager reviewed time.
+  - Receipt total.
+  - Current status.
+  - A highlighted manager response:
+    - Waiting for manager response.
+    - Approved by manager.
+    - Rejected by manager with comment.
+  - Full receipt audit timeline.
+- Added readable labels for audit actions so the popup is understandable to both employee and manager users.
+- Made backend audit details more descriptive for:
+  - `submitted`
+  - `approved`
+  - `rejected`
+- Added test assertions for descriptive submit/approve/reject audit details.
+
+### Files Modified
+
+- `app/main.py`
+- `static/app.js`
+- `static/styles.css`
+- `tests/test_workflow.py`
+- `CODEX_HANDOFF.md`
+
+### Verification
+
+- Ran the project test suite with the local virtualenv: `8 passed`.
+- Confirmed the local server at `http://localhost:8080/` returned `200`.
+
+### Known Risk / Follow-Up
+
+- Existing historical audit rows still have their original shorter detail text. New submissions/manager responses will use the more descriptive audit detail text.
+
 ## Files Modified
 
 - `static/index.html`

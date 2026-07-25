@@ -187,10 +187,13 @@ function tableRow(r, withEdit) {
       <span class="rt-tax">${r.tax_amount != null ? Number(r.tax_amount).toFixed(2) : "—"}</span>
       <span class="rt-items" title="${escapeHtml((r.line_items || []).map((li) => li.description).join(", "))}">${(r.line_items || []).length || "—"}</span>
       <span class="rt-stage">${stageTrack(r.status)}</span>
-      ${withEdit ? `<span class="rt-actions">
+      <span class="rt-actions">
+        <button class="btn rt-audit" data-audit="${r.id}" title="View submission audit and manager response">Audit</button>
+        ${withEdit ? `
         <button class="btn rt-edit" data-edit="${r.id}" title="Open in the review panel to edit fields">✎ Edit</button>
         <button class="btn rt-delete" data-delete="${r.id}" title="Delete this receipt">Delete</button>
-      </span>` : ""}
+        ` : ""}
+      </span>
     </div>`;
 }
 
@@ -242,11 +245,13 @@ function receiptTable(rows, emptyText, expandable) {
       <span class="rt-tax">Tax</span>
       <span class="rt-items">Items</span>
       <span class="rt-stage" style="justify-content:flex-end;">Stage</span>
-      ${expandable ? `<span class="rt-actions">
+      <span class="rt-actions">
+      ${expandable ? `
         <button id="delete-selected-btn" class="btn btn-danger bulk-delete-btn" ${selectedCount ? "" : "hidden"}>
           Delete selected${selectedCount ? ` (${selectedCount})` : ""}
         </button>
-      </span>` : ""}
+      ` : "Actions"}
+      </span>
     </div>
     ${rows.map((r) => tableRow(r, expandable) + (expandable && r.id === expandedId ? expandHtml(r) : "")).join("")}`;
 }
@@ -568,6 +573,71 @@ async function openModal(id) {
   });
 }
 
+function auditActionLabel(action) {
+  return {
+    uploaded: "Uploaded",
+    extraction_requested: "AI extraction requested",
+    processing_started: "AI processing started",
+    extraction_completed: "AI extraction completed",
+    extraction_failed: "AI extraction failed",
+    not_a_receipt: "Rejected by AI as non-receipt",
+    duplicate_flagged: "Duplicate flagged",
+    edited: "Employee edited fields",
+    message_to_manager: "Employee messaged manager",
+    rejection_overridden: "Employee overrode AI rejection",
+    submitted: "Submitted for manager approval",
+    approved: "Manager approved",
+    rejected: "Manager rejected",
+  }[action] || action.replaceAll("_", " ");
+}
+
+function managerResponseHtml(r, audit) {
+  const response = audit.find((a) => ["approved", "rejected"].includes(a.action));
+  if (r.status === "submitted" && !response) {
+    return `<div class="audit-response pending"><b>Waiting for manager response.</b><span>The receipt was submitted and is still in the manager queue.</span></div>`;
+  }
+  if (response?.action === "approved" || r.status === "approved") {
+    return `<div class="audit-response approved"><b>Approved by manager.</b><span>${escapeHtml(response?.detail || "Manager approved the submitted receipt.")}</span></div>`;
+  }
+  if (response?.action === "rejected" || r.status === "rejected") {
+    return `<div class="audit-response rejected"><b>Rejected by manager.</b><span>${escapeHtml(r.manager_comment || response?.detail || "No rejection comment was recorded.")}</span></div>`;
+  }
+  return `<div class="audit-response neutral"><b>No manager response yet.</b><span>This receipt has not been submitted for manager review.</span></div>`;
+}
+
+async function openSubmissionAudit(id) {
+  const r = await api(`/api/receipts/${id}`);
+  const audit = await api(`/api/receipts/${id}/audit`);
+  const submitted = audit.find((a) => a.action === "submitted");
+  $("#detail-panel").classList.remove("employee-detail-modal");
+  $("#detail-panel").innerHTML = `
+    <div class="modal-head">
+      <span class="modal-title">Submission audit — ${escapeHtml(receiptDisplayName(r))}</span>
+      <span class="status-chip status-${r.status}">${STATUS_LABELS[r.status]}</span>
+      <button id="modal-close" class="modal-close" title="Close">✕</button>
+    </div>
+    <div class="receipt-meta-grid modal-meta-grid">
+      <div class="receipt-meta-cell"><span>Submitted</span><b>${formatTimestamp(r.submitted_at || submitted?.created_at)}</b></div>
+      <div class="receipt-meta-cell"><span>Manager reviewed</span><b>${formatTimestamp(r.reviewed_at)}</b></div>
+      <div class="receipt-meta-cell"><span>Total</span><b>${r.total_amount != null ? `${escapeHtml(r.currency || "")} ${Number(r.total_amount).toFixed(2)}` : "—"}</b></div>
+    </div>
+    ${managerResponseHtml(r, audit)}
+    ${r.employee_note ? `<div class="banner warn" style="margin-top:10px;"><b>Employee note:</b> ${escapeHtml(r.employee_note)}</div>` : ""}
+    <div class="audit-panel">
+      <div class="li-head">Full receipt audit log</div>
+      <ul class="audit-timeline">
+        ${audit.map((a) => `<li class="audit-event action-${a.action}">
+          <span class="audit-time">${formatTimestamp(a.created_at)}</span>
+          <b>${escapeHtml(a.actor)}</b>
+          <strong>${escapeHtml(auditActionLabel(a.action))}</strong>
+          ${a.detail ? `<p>${escapeHtml(a.detail)}</p>` : ""}
+        </li>`).join("")}
+      </ul>
+    </div>`;
+  $("#detail-overlay").hidden = false;
+  $("#modal-close").onclick = closeModal;
+}
+
 function closeModal() {
   stopCameraStream();
   $("#detail-overlay").hidden = true;
@@ -856,6 +926,13 @@ document.addEventListener("click", (e) => {
     e.preventDefault();
     e.stopPropagation();
     deleteReceipt(Number(deleteBtn.dataset.delete));
+    return;
+  }
+  const auditBtn = e.target.closest("[data-audit]");
+  if (auditBtn) {
+    e.preventDefault();
+    e.stopPropagation();
+    openSubmissionAudit(Number(auditBtn.dataset.audit));
     return;
   }
   const editBtn = e.target.closest("[data-edit]");

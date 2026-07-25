@@ -347,7 +347,8 @@ def submit_receipt(receipt_id: int):
             "UPDATE receipts SET status='submitted', submitted_at=?, manager_comment=NULL, updated_at=? WHERE id=?",
             (utcnow(), utcnow(), receipt_id),
         )
-        log_audit(conn, receipt_id, "employee", "submitted")
+        log_audit(conn, receipt_id, "employee", "submitted",
+                  f"submitted {row['merchant']} receipt for manager approval")
         return row_to_receipt(conn, fetch_receipt(conn, receipt_id))
 
 
@@ -362,7 +363,7 @@ def approve_receipt(receipt_id: int, x_role: Optional[str] = Header(None)):
             "UPDATE receipts SET status='approved', reviewed_at=?, updated_at=? WHERE id=?",
             (utcnow(), utcnow(), receipt_id),
         )
-        log_audit(conn, receipt_id, "manager", "approved")
+        log_audit(conn, receipt_id, "manager", "approved", "manager approved the submitted receipt")
         return row_to_receipt(conn, fetch_receipt(conn, receipt_id))
 
 
@@ -379,7 +380,8 @@ def reject_receipt(receipt_id: int, body: RejectBody, x_role: Optional[str] = He
             "UPDATE receipts SET status='rejected', manager_comment=?, reviewed_at=?, updated_at=? WHERE id=?",
             (body.comment.strip(), utcnow(), utcnow(), receipt_id),
         )
-        log_audit(conn, receipt_id, "manager", "rejected", body.comment.strip())
+        log_audit(conn, receipt_id, "manager", "rejected",
+                  f"manager rejected the submitted receipt: {body.comment.strip()}")
         return row_to_receipt(conn, fetch_receipt(conn, receipt_id))
 
 

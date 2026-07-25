@@ -62,9 +62,12 @@ def test_upload_extract_edit_submit_approve():
     assert r["status"] == "approved"
 
     # Audit trail covers the whole lifecycle
-    actions = [a["action"] for a in client.get(f"/api/receipts/{rid}/audit").json()]
+    audit = client.get(f"/api/receipts/{rid}/audit").json()
+    actions = [a["action"] for a in audit]
     for expected in ["uploaded", "extraction_requested", "extraction_completed", "edited", "submitted", "approved"]:
         assert expected in actions
+    assert any(a["action"] == "submitted" and "manager approval" in a["detail"] for a in audit)
+    assert any(a["action"] == "approved" and "manager approved" in a["detail"] for a in audit)
 
 
 def test_reject_requires_comment_and_allows_resubmit():
@@ -76,6 +79,8 @@ def test_reject_requires_comment_and_allows_resubmit():
     r = client.post(f"/api/receipts/{rid}/reject", headers={"X-Role": "manager"},
                     json={"comment": "Missing itemization"}).json()
     assert r["status"] == "rejected" and r["manager_comment"] == "Missing itemization"
+    audit = client.get(f"/api/receipts/{rid}/audit").json()
+    assert any(a["action"] == "rejected" and "Missing itemization" in a["detail"] for a in audit)
 
     # Employee can fix and resubmit
     client.patch(f"/api/receipts/{rid}", json={"merchant": "Fixed Merchant"})
