@@ -685,6 +685,34 @@ Codex GPT-5.5 fixed the deployed `Try random receipt` feature by adding sample r
 
 - None. The sample files are intentionally tracked so Railway includes them in the deployed static bundle.
 
+## Latest Edit: Camera Permission Block Recovery
+
+Codex GPT-5.5 improved the camera modal behavior when a browser has already hard-blocked camera permission.
+
+### What Changed
+
+- Added a browser permission-state check before retrying `getUserMedia`.
+- If camera permission is already `denied`, the modal no longer implies the browser prompt can be reopened automatically.
+- Renamed the retry action to `I changed settings - try camera`.
+- Added an `Open site settings help` button that repeats clear recovery instructions.
+- The help text now tells the user to use the address-bar camera icon or site settings, set Camera to Allow, then retry.
+- `Choose image` remains available as the reliable fallback.
+
+### Files Modified
+
+- `static/app.js`
+- `CODEX_HANDOFF.md`
+
+### Verification
+
+- Ran the project test suite with the local virtualenv: `8 passed`.
+- Confirmed the local server at `http://localhost:8080/` returned `200`.
+- Verified the static bundle contains the new blocked-permission controls.
+
+### Known Risk / Follow-Up
+
+- Browser JavaScript cannot force a permission prompt after a hard block. The user must change browser/site settings first, then retry.
+
 ## Files Modified
 
 - `static/index.html`

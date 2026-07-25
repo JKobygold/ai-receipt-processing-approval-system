@@ -734,7 +734,8 @@ async function openCameraModal() {
       <div id="camera-help" class="camera-help" hidden></div>
       <div class="actions">
         <button id="camera-capture" class="btn btn-primary" disabled>Capture photo</button>
-        <button id="camera-retry" class="btn btn-gold" hidden>Request permission again</button>
+        <button id="camera-retry" class="btn btn-gold" hidden>I changed settings - try camera</button>
+        <button id="camera-settings-help" class="btn btn-ghost" hidden>Open site settings help</button>
         <button id="camera-fallback" class="btn">Choose image</button>
         <button id="camera-cancel" class="btn btn-ghost">Cancel</button>
       </div>
@@ -752,11 +753,26 @@ async function openCameraModal() {
   const help = $("#camera-help");
   const capture = $("#camera-capture");
   const retry = $("#camera-retry");
+  const settingsHelp = $("#camera-settings-help");
+
+  const cameraSettingsHelpText = () => {
+    const host = location.hostname === "localhost" ? "localhost:8080" : location.host;
+    return `Camera access is blocked by the browser for ${host}. Use the camera icon in the address bar, or open browser site settings and change Camera to Allow. After changing it, click "I changed settings - try camera". You can also use Choose image.`;
+  };
+
+  const cameraPermissionState = async () => {
+    try {
+      return (await navigator.permissions?.query({ name: "camera" })).state;
+    } catch {
+      return "unknown";
+    }
+  };
 
   const requestCamera = async () => {
     stopCameraStream();
     capture.disabled = true;
     retry.hidden = true;
+    settingsHelp.hidden = true;
     help.hidden = true;
     help.textContent = "";
     status.classList.remove("err");
@@ -764,6 +780,12 @@ async function openCameraModal() {
 
     try {
       if (!navigator.mediaDevices?.getUserMedia) throw new Error("Camera access is not supported by this browser.");
+      const permissionState = await cameraPermissionState();
+      if (permissionState === "denied") {
+        const err = new Error("Camera permission is blocked for this site.");
+        err.name = "PermissionAlreadyDenied";
+        throw err;
+      }
       activeCameraStream = await navigator.mediaDevices.getUserMedia({
         video: { facingMode: { ideal: "environment" } },
         audio: false,
@@ -773,21 +795,26 @@ async function openCameraModal() {
       status.textContent = "Camera ready.";
       capture.disabled = false;
     } catch (e) {
-      const denied = e.name === "NotAllowedError" || e.name === "PermissionDeniedError";
+      const denied = ["NotAllowedError", "PermissionDeniedError", "PermissionAlreadyDenied"].includes(e.name);
       const insecure = location.protocol !== "https:" && !["localhost", "127.0.0.1"].includes(location.hostname);
       status.textContent = denied ? "Camera permission is blocked for this site." : e.message;
       status.classList.add("err");
       help.hidden = false;
       help.textContent = denied
-        ? "Use the browser camera icon or site settings to allow camera access for localhost, then request permission again. You can also choose an image from this device."
+        ? cameraSettingsHelpText()
         : insecure
           ? "Camera access requires HTTPS, except on localhost. Run the app on localhost or deploy over HTTPS."
           : "You can still choose an image from this device.";
       retry.hidden = false;
+      settingsHelp.hidden = !denied;
     }
   };
 
   retry.onclick = requestCamera;
+  settingsHelp.onclick = () => {
+    help.hidden = false;
+    help.textContent = cameraSettingsHelpText();
+  };
   await requestCamera();
 
   $("#camera-capture").onclick = async () => {
