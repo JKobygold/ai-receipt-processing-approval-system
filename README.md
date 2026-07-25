@@ -27,7 +27,9 @@ A lightweight web app for expense receipts: employees upload a receipt (image or
 python3 -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
 
-# Optional: enable live AI extraction (otherwise a deterministic mock is used)
+# Optional: enable live AI extraction (otherwise a deterministic mock is used).
+# Either export the key, or copy .env.example to .env and paste it there —
+# .env is gitignored and loaded automatically at startup.
 export ANTHROPIC_API_KEY=sk-ant-...
 
 uvicorn app.main:app --port 8000
