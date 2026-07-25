@@ -23,6 +23,7 @@ A retryable `Failed` state is also included for extraction issues.
 | Manager workflow | Review pending submissions, approve receipts, reject with required comments |
 | AI extraction | Merchant, purchase date, total, currency, tax, and line items when available |
 | Import methods | Drag-and-drop, file picker, sample receipt import, and phone/computer camera capture |
+| Mobile support | Responsive employee and manager views, with mobile-friendly receipt upload and camera capture |
 | Review support | Field confidence scores, confidence explanations, receipt preview, duplicate detection, retry, and audit log |
 | Offline/demo mode | Deterministic mock extractor when no API key is configured |
 

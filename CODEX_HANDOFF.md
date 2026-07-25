@@ -995,6 +995,30 @@ Codex GPT-5.5 cleaned up the README formatting so the GitHub page is easier to s
 
 - None.
 
+## Latest Edit: README Mobile Support Note
+
+Codex GPT-5.5 added a concise README feature note for mobile usability.
+
+### What Changed
+
+- Added a `Mobile support` row to the README feature table.
+- Mentioned responsive employee/manager views.
+- Mentioned mobile-friendly receipt upload and camera capture.
+
+### Files Modified
+
+- `README.md`
+- `CODEX_HANDOFF.md`
+
+### Verification
+
+- Docs-only change; no application code touched.
+- Confirmed the note is placed in the README feature table near the import methods row.
+
+### Known Risk / Follow-Up
+
+- None.
+
 ## Latest Edit: README — video link + camera capture line
 
 Claude Code (Fable 5) applied two doc-only additions from a README review.
