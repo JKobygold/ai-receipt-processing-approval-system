@@ -858,3 +858,26 @@ Codex GPT-5.5 added a reset button under the live receipt preview.
 ### Known Risk / Follow-Up
 
 - None.
+
+## Latest Edit: Rename Add Another Receipt Button
+
+Codex GPT-5.5 changed the receipt preview reset button copy.
+
+### What Changed
+
+- Renamed the visible button from `Try another receipt` to `Add another receipt`.
+- Kept the existing reset behavior and internal button ID.
+
+### Files Modified
+
+- `static/index.html`
+- `CODEX_HANDOFF.md`
+
+### Verification
+
+- Ran the project test suite with the local virtualenv: `8 passed`.
+- Confirmed the local server at `http://localhost:8080/` returned `200`.
+
+### Known Risk / Follow-Up
+
+- None.
