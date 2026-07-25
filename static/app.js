@@ -7,14 +7,22 @@ let expandedId = null;   // employee: receipt expanded inline in the table (via 
 let modalId = null;      // manager: receipt open in the approval modal
 let pendingFile = null;  // staged file shown in the preview but NOT yet uploaded
 let pendingUrl = null;   // object URL for the staged file's local preview
+let receiptSort = "merchant-asc";
+const selectedReceiptIds = new Set();
+let activeCameraStream = null;
 
 const $ = (sel) => document.querySelector(sel);
+const ROLE_PROFILES = {
+  employee: { name: "Jacob Gold", role: "Employee", initials: "JG" },
+  manager: { name: "Manager", role: "Manager", initials: "MG" },
+};
 
 const STATUS_LABELS = {
   uploaded: "Uploaded", processing: "Processing…", failed: "Failed",
   review: "Needs review", submitted: "Submitted", approved: "Approved", rejected: "Rejected",
 };
 const STAGES = ["uploaded", "processing", "review", "submitted"];
+const STAGE_SORT = { uploaded: 0, processing: 1, failed: 2, review: 3, rejected: 4, submitted: 5, approved: 6 };
 const ACCEPTED_EXT = /\.(png|jpe?g|heic|heif|pdf)$/i;
 
 async function api(path, opts = {}) {
@@ -32,6 +40,16 @@ async function api(path, opts = {}) {
 
 function escapeHtml(s) {
   return String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+}
+
+function formatTimestamp(value) {
+  if (!value) return "—";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value.replace("T", " ").replace("Z", "");
+  return date.toLocaleString([], {
+    year: "numeric", month: "short", day: "numeric",
+    hour: "numeric", minute: "2-digit",
+  });
 }
 
 function confBadge(conf, field) {
@@ -86,6 +104,9 @@ function tableRow(r, withEdit) {
     ? `<div class="rt-flags"><span class="badge-dup" style="color:var(--danger);border-color:#e3b6ad;background:#f7e3df;">Not a receipt</span></div>` : "";
   return `
     <div class="r-table-row ${r.id === expandedId && role === "employee" ? "selected" : ""}" data-id="${r.id}">
+      ${withEdit ? `<span class="rt-select">
+        <input type="checkbox" data-select="${r.id}" aria-label="Select receipt #${r.id}" ${selectedReceiptIds.has(r.id) ? "checked" : ""}>
+      </span>` : ""}
       <span class="rt-id">#${r.id}</span>
       <span class="rt-merchant">${escapeHtml(r.merchant || "—")}
         <span class="rt-file">${escapeHtml(r.original_name)}</span>${dup}${rejected}${notReceipt}
@@ -96,7 +117,10 @@ function tableRow(r, withEdit) {
       <span class="rt-tax">${r.tax_amount != null ? Number(r.tax_amount).toFixed(2) : "—"}</span>
       <span class="rt-items" title="${escapeHtml((r.line_items || []).map((li) => li.description).join(", "))}">${(r.line_items || []).length || "—"}</span>
       <span class="rt-stage">${stageTrack(r.status)}</span>
-      ${withEdit ? `<span class="rt-editcol"><button class="btn rt-edit" data-edit="${r.id}" title="Open in the review panel to edit fields">✎ Edit</button></span>` : ""}
+      ${withEdit ? `<span class="rt-actions">
+        <button class="btn rt-edit" data-edit="${r.id}" title="Open in the review panel to edit fields">✎ Edit</button>
+        <button class="btn rt-delete" data-delete="${r.id}" title="Delete this receipt">Delete</button>
+      </span>` : ""}
     </div>`;
 }
 
@@ -113,7 +137,7 @@ function expandHtml(r) {
       ${cell("Currency", escapeHtml(r.currency || "—"))}
       ${cell("Tax", r.tax_amount != null ? Number(r.tax_amount).toFixed(2) : "—")}
       ${cell("File", escapeHtml(r.original_name))}
-      ${cell("Uploaded", (r.created_at || "").replace("T", " ").replace("Z", ""))}
+      ${cell("Uploaded", formatTimestamp(r.created_at))}
       ${cell("Status", STATUS_LABELS[r.status])}
     </div>
     ${items.length ? `
@@ -136,8 +160,10 @@ function expandHtml(r) {
 
 function receiptTable(rows, emptyText, expandable) {
   if (!rows.length) return `<p class="r-empty">${emptyText}</p>`;
+  const selectedCount = selectedReceiptIds.size;
   return `
     <div class="r-table-header">
+      ${expandable ? `<span class="rt-select"></span>` : ""}
       <span class="rt-id">#</span>
       <span class="rt-merchant">Merchant / file</span>
       <span class="rt-date">Date</span>
@@ -146,14 +172,43 @@ function receiptTable(rows, emptyText, expandable) {
       <span class="rt-tax">Tax</span>
       <span class="rt-items">Items</span>
       <span class="rt-stage" style="justify-content:flex-end;">Stage</span>
-      ${expandable ? `<span class="rt-editcol"></span>` : ""}
+      ${expandable ? `<span class="rt-actions">
+        <button id="delete-selected-btn" class="btn btn-danger bulk-delete-btn" ${selectedCount ? "" : "hidden"}>
+          Delete selected${selectedCount ? ` (${selectedCount})` : ""}
+        </button>
+      </span>` : ""}
     </div>
     ${rows.map((r) => tableRow(r, expandable) + (expandable && r.id === expandedId ? expandHtml(r) : "")).join("")}`;
 }
 
+function sortedReceipts(rows) {
+  const text = (value) => (value || "").toLocaleLowerCase();
+  const dateValue = (r) => Date.parse(r.purchase_date || r.created_at || "") || 0;
+  const totalValue = (r) => r.total_amount == null ? Number.POSITIVE_INFINITY : Number(r.total_amount);
+  const byIdDesc = (a, b) => b.id - a.id;
+
+  return [...rows].sort((a, b) => {
+    let result = 0;
+    if (receiptSort === "merchant-asc") {
+      result = text(a.merchant || a.original_name).localeCompare(text(b.merchant || b.original_name));
+    } else if (receiptSort === "date-desc") {
+      result = dateValue(b) - dateValue(a);
+    } else if (receiptSort === "date-asc") {
+      result = dateValue(a) - dateValue(b);
+    } else if (receiptSort === "total-asc") {
+      result = totalValue(a) - totalValue(b);
+    } else if (receiptSort === "total-desc") {
+      result = totalValue(b) - totalValue(a);
+    } else if (receiptSort === "stage-asc") {
+      result = (STAGE_SORT[a.status] ?? 99) - (STAGE_SORT[b.status] ?? 99);
+    }
+    return result || byIdDesc(a, b);
+  });
+}
+
 function renderLists() {
   if (role === "employee") {
-    $("#employee-table").innerHTML = receiptTable(receipts, "No receipts yet — upload one to get started.", true);
+    $("#employee-table").innerHTML = receiptTable(sortedReceipts(receipts), "No receipts yet — upload one to get started.", true);
   } else {
     const pending = receipts.filter((r) => r.status === "submitted");
     const done = receipts.filter((r) => ["approved", "rejected"].includes(r.status));
@@ -222,6 +277,11 @@ function fieldsHtml(r, audit) {
     ${r.manager_comment ? `<div class="banner warn"><b>Manager comment:</b> ${escapeHtml(r.manager_comment)} — correct the fields below and resubmit.</div>` : ""}
     ${r.status === "uploaded" ? `<div class="banner warn">Receipt uploaded — press <b>Submit receipt</b> under the preview to send it to our AI for extraction.</div>` : ""}
     ${r.status === "processing" ? `<div class="banner warn">Our AI is reading this receipt — fields will appear here in a few seconds.</div>` : ""}
+    <div class="receipt-meta-grid">
+      <div class="receipt-meta-cell"><span>Uploaded</span><b>${formatTimestamp(r.created_at)}</b></div>
+      <div class="receipt-meta-cell"><span>File</span><b>${escapeHtml(r.original_name)}</b></div>
+      <div class="receipt-meta-cell"><span>Last updated</span><b>${formatTimestamp(r.updated_at)}</b></div>
+    </div>
     <form id="edit-form" onsubmit="return false;">
       <div class="fields-grid">
         ${field("Merchant name", "merchant", r.merchant)}
@@ -242,17 +302,8 @@ function fieldsHtml(r, audit) {
     <div class="actions">${actions}<span id="detail-msg"></span></div>
     ${r.status !== "approved" ? `
     <div class="msg-manager">
-      <div class="msg-title">Message to manager</div>
-      <textarea id="mgr-msg" class="msg-input" rows="3"
-        placeholder="Add a note about this receipt for your manager…">${escapeHtml(r.employee_note || "")}</textarea>
-      <div class="msg-meta">
-        <span class="msg-hint">Please be clear and concise in your communication.</span>
-        <span id="msg-count" class="msg-count"></span>
-      </div>
-      <div class="actions" style="margin-top:8px;">
-        <button id="msg-send" class="btn">Message to manager</button>
-        <span id="msg-status"></span>
-      </div>
+      <button id="msg-open" class="btn">Message to manager</button>
+      <span id="msg-status" class="${r.employee_note ? "msg-ok" : ""}">${r.employee_note ? "Message saved." : ""}</span>
     </div>` : ""}
     <details class="audit"><summary>Audit log</summary>
       <ul>${audit.map((a) => `<li><span>${a.created_at}</span> <b>${a.actor}</b> ${a.action}${a.detail ? " — " + escapeHtml(a.detail) : ""}</li>`).join("")}</ul>
@@ -322,36 +373,7 @@ function wireFields(r) {
   }));
   $("#retry-btn")?.addEventListener("click", act(() => api(`/api/receipts/${r.id}/extract`, { method: "POST" })));
   $("#override-btn")?.addEventListener("click", act(() => api(`/api/receipts/${r.id}/override`, { method: "POST" })));
-
-  // Message to manager — hard 100-word limit, cut off as you type.
-  const msgBox = $("#mgr-msg");
-  if (msgBox) {
-    const LIMIT = 100;
-    const words = (t) => t.trim().split(/\s+/).filter(Boolean);
-    const updateCount = () => {
-      let w = words(msgBox.value);
-      if (w.length > LIMIT) {
-        msgBox.value = w.slice(0, LIMIT).join(" ");
-        w = words(msgBox.value);
-      }
-      const el = $("#msg-count");
-      el.textContent = `${w.length}/${LIMIT} words`;
-      el.classList.toggle("msg-limit", w.length >= LIMIT);
-    };
-    msgBox.addEventListener("input", updateCount);
-    updateCount();
-    $("#msg-send").onclick = async () => {
-      const status = $("#msg-status");
-      try {
-        await api(`/api/receipts/${r.id}/message`, { method: "POST", body: JSON.stringify({ text: msgBox.value }) });
-        status.textContent = "Sent to manager.";
-        status.className = "msg-ok";
-      } catch (e) {
-        status.textContent = e.message;
-        status.className = "msg-err";
-      }
-    };
-  }
+  $("#msg-open")?.addEventListener("click", () => openMessageModal(r));
 }
 
 function wireRowDeletes() {
@@ -388,6 +410,11 @@ async function openModal(id) {
       <button id="modal-close" class="modal-close" title="Close">✕</button>
     </div>
     ${stageTrack(r.status)}
+    <div class="receipt-meta-grid modal-meta-grid">
+      <div class="receipt-meta-cell"><span>Uploaded</span><b>${formatTimestamp(r.created_at)}</b></div>
+      <div class="receipt-meta-cell"><span>File</span><b>${escapeHtml(r.original_name)}</b></div>
+      <div class="receipt-meta-cell"><span>Submitted</span><b>${formatTimestamp(r.submitted_at)}</b></div>
+    </div>
     ${r.duplicate_of_id ? `<div class="banner warn" style="margin-top:10px;">⚠ Possible duplicate of receipt #${r.duplicate_of_id}.</div>` : ""}
     ${r.manager_comment ? `<div class="banner warn" style="margin-top:10px;"><b>Comment:</b> ${escapeHtml(r.manager_comment)}</div>` : ""}
     ${r.employee_note ? `<div class="banner warn" style="margin-top:10px;"><b>Note from employee:</b> ${escapeHtml(r.employee_note)}</div>` : ""}
@@ -430,8 +457,142 @@ async function openModal(id) {
 }
 
 function closeModal() {
+  stopCameraStream();
   $("#detail-overlay").hidden = true;
   modalId = null;
+}
+
+function stopCameraStream() {
+  if (!activeCameraStream) return;
+  activeCameraStream.getTracks().forEach((track) => track.stop());
+  activeCameraStream = null;
+}
+
+function openMessageModal(r) {
+  const current = escapeHtml(r.employee_note || "");
+  $("#detail-panel").innerHTML = `
+    <div class="modal-head">
+      <span class="modal-title">Message to manager — receipt #${r.id}</span>
+      <button id="modal-close" class="modal-close" title="Close">✕</button>
+    </div>
+    <div class="message-modal-body">
+      <textarea id="mgr-msg" class="msg-input msg-input-modal" rows="6"
+        placeholder="Add a note about this receipt for your manager...">${current}</textarea>
+      <div class="msg-meta">
+        <span class="msg-hint">Please be clear and concise in your communication.</span>
+        <span id="msg-count" class="msg-count"></span>
+      </div>
+      <div class="actions">
+        <button id="msg-submit" class="btn btn-primary">Submit message</button>
+        <button id="msg-cancel" class="btn btn-ghost">Cancel</button>
+        <span id="modal-msg"></span>
+      </div>
+    </div>`;
+  $("#detail-overlay").hidden = false;
+  $("#modal-close").onclick = closeModal;
+  $("#msg-cancel").onclick = closeModal;
+
+  const msgBox = $("#mgr-msg");
+  const LIMIT = 100;
+  const words = (t) => t.trim().split(/\s+/).filter(Boolean);
+  const updateCount = () => {
+    let w = words(msgBox.value);
+    if (w.length > LIMIT) {
+      msgBox.value = w.slice(0, LIMIT).join(" ");
+      w = words(msgBox.value);
+    }
+    const el = $("#msg-count");
+    el.textContent = `${w.length}/${LIMIT} words`;
+    el.classList.toggle("msg-limit", w.length >= LIMIT);
+  };
+  msgBox.addEventListener("input", updateCount);
+  updateCount();
+  msgBox.focus();
+
+  $("#msg-submit").onclick = async () => {
+    const submit = $("#msg-submit");
+    const status = $("#modal-msg");
+    submit.disabled = true;
+    status.textContent = "";
+    try {
+      await api(`/api/receipts/${r.id}/message`, { method: "POST", body: JSON.stringify({ text: msgBox.value }) });
+      await refresh();
+      closeModal();
+      await selectReceipt(r.id);
+      const detailMsg = $("#detail-msg");
+      if (detailMsg) {
+        detailMsg.textContent = "Message sent.";
+        detailMsg.className = "msg-ok";
+      }
+      const inlineStatus = $("#msg-status");
+      if (inlineStatus) {
+        inlineStatus.textContent = "Message sent.";
+        inlineStatus.className = "msg-ok";
+      }
+    } catch (e) {
+      submit.disabled = false;
+      status.textContent = e.message;
+      status.className = "msg-err";
+    }
+  };
+}
+
+async function openCameraModal() {
+  $("#detail-panel").innerHTML = `
+    <div class="modal-head">
+      <span class="modal-title">Take receipt photo</span>
+      <button id="modal-close" class="modal-close" title="Close">✕</button>
+    </div>
+    <div class="camera-modal-body">
+      <video id="camera-video" class="camera-video" autoplay playsinline muted></video>
+      <div id="camera-status" class="upload-status"></div>
+      <div class="actions">
+        <button id="camera-capture" class="btn btn-primary" disabled>Capture photo</button>
+        <button id="camera-fallback" class="btn">Choose image</button>
+        <button id="camera-cancel" class="btn btn-ghost">Cancel</button>
+      </div>
+    </div>`;
+  $("#detail-overlay").hidden = false;
+  $("#modal-close").onclick = closeModal;
+  $("#camera-cancel").onclick = closeModal;
+  $("#camera-fallback").onclick = () => {
+    closeModal();
+    $("#camera-input").click();
+  };
+
+  const status = $("#camera-status");
+  const video = $("#camera-video");
+  try {
+    if (!navigator.mediaDevices?.getUserMedia) throw new Error("Camera access is not supported by this browser.");
+    activeCameraStream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: { ideal: "environment" } },
+      audio: false,
+    });
+    video.srcObject = activeCameraStream;
+    await video.play();
+    status.textContent = "Camera ready.";
+    $("#camera-capture").disabled = false;
+  } catch (e) {
+    status.textContent = `${e.message} You can still choose an image from this device.`;
+    status.classList.add("err");
+  }
+
+  $("#camera-capture").onclick = async () => {
+    const canvas = document.createElement("canvas");
+    canvas.width = video.videoWidth || 1280;
+    canvas.height = video.videoHeight || 720;
+    canvas.getContext("2d").drawImage(video, 0, 0, canvas.width, canvas.height);
+    canvas.toBlob((blob) => {
+      if (!blob) {
+        status.textContent = "Could not capture photo. Try again.";
+        status.classList.add("err");
+        return;
+      }
+      const file = new File([blob], `camera-receipt-${Date.now()}.jpg`, { type: "image/jpeg" });
+      closeModal();
+      stageFile(file);
+    }, "image/jpeg", 0.92);
+  };
 }
 
 // ---------- staging / upload ----------
@@ -447,7 +608,8 @@ function clearStaged() {
 function stageFile(file) {
   const status = $("#upload-status");
   status.className = "upload-status";
-  if (!ACCEPTED_EXT.test(file.name || "")) {
+  const looksLikeCameraImage = file.type && file.type.startsWith("image/");
+  if (!ACCEPTED_EXT.test(file.name || "") && !looksLikeCameraImage) {
     status.textContent = "Unsupported file — upload a PDF, PNG, JPEG or HEIC.";
     status.classList.add("err");
     return;
@@ -471,6 +633,10 @@ function stageFile(file) {
 
 async function refresh() {
   receipts = await api("/api/receipts");
+  const liveIds = new Set(receipts.map((r) => r.id));
+  [...selectedReceiptIds].forEach((id) => {
+    if (!liveIds.has(id)) selectedReceiptIds.delete(id);
+  });
   renderLists();
 }
 
@@ -478,7 +644,10 @@ function setRole(newRole) {
   role = newRole;
   $("#role-employee").classList.toggle("active", role === "employee");
   $("#role-manager").classList.toggle("active", role === "manager");
-  $("#user-role").textContent = role === "employee" ? "Employee" : "Manager";
+  const profile = ROLE_PROFILES[role];
+  $("#user-name").textContent = profile.name;
+  $("#user-role").textContent = profile.role;
+  $("#topbar-avatar").textContent = profile.initials;
   $("#employee-view").hidden = role !== "employee";
   $("#manager-view").hidden = role !== "manager";
   $("#howto").hidden = role !== "employee";
@@ -486,7 +655,51 @@ function setRole(newRole) {
   renderLists();
 }
 
+async function enterApp(newRole) {
+  setRole(newRole);
+  $("#login-screen").hidden = true;
+  $("#main-app").hidden = false;
+  await refresh();
+  const deepLink = location.hash.match(/^#r(\d+)$/);
+  if (deepLink && role === "employee") {
+    expandedId = Number(deepLink[1]);
+    await selectReceipt(expandedId);
+  }
+}
+
+function showLogin() {
+  clearStaged();
+  closeModal();
+  selectedId = null;
+  expandedId = null;
+  $("#main-app").hidden = true;
+  $("#login-screen").hidden = false;
+}
+
 document.addEventListener("click", (e) => {
+  const bulkDeleteBtn = e.target.closest("#delete-selected-btn");
+  if (bulkDeleteBtn) {
+    e.preventDefault();
+    e.stopPropagation();
+    deleteSelectedReceipts();
+    return;
+  }
+  const selectBox = e.target.closest("[data-select]");
+  if (selectBox) {
+    e.stopPropagation();
+    const id = Number(selectBox.dataset.select);
+    if (selectBox.checked) selectedReceiptIds.add(id);
+    else selectedReceiptIds.delete(id);
+    renderLists();
+    return;
+  }
+  const deleteBtn = e.target.closest("[data-delete]");
+  if (deleteBtn) {
+    e.preventDefault();
+    e.stopPropagation();
+    deleteReceipt(Number(deleteBtn.dataset.delete));
+    return;
+  }
   const editBtn = e.target.closest("[data-edit]");
   if (editBtn) {
     selectReceipt(Number(editBtn.dataset.edit), { scroll: true });
@@ -506,8 +719,47 @@ document.addEventListener("click", (e) => {
   if (e.target.id === "detail-overlay") closeModal();
 });
 
+async function deleteReceipt(id) {
+  const receipt = receipts.find((r) => r.id === id);
+  const label = receipt?.merchant || receipt?.original_name || `receipt #${id}`;
+  if (!confirm(`Delete ${label}? This removes it from the database and receipt list.`)) return;
+  try {
+    await api(`/api/receipts/${id}`, { method: "DELETE" });
+    if (selectedId === id) await selectReceipt(null);
+    if (expandedId === id) expandedId = null;
+    await refresh();
+  } catch (e) {
+    alert(e.message);
+  }
+}
+
+async function deleteSelectedReceipts() {
+  const ids = [...selectedReceiptIds];
+  if (!ids.length) return;
+  const plural = ids.length === 1 ? "receipt" : "receipts";
+  if (!confirm(`Delete ${ids.length} selected ${plural}? This removes them from the database and receipt list.`)) return;
+  try {
+    await Promise.all(ids.map((id) => api(`/api/receipts/${id}`, { method: "DELETE" })));
+    ids.forEach((id) => selectedReceiptIds.delete(id));
+    if (ids.includes(selectedId)) await selectReceipt(null);
+    if (ids.includes(expandedId)) expandedId = null;
+    await refresh();
+  } catch (e) {
+    alert(e.message);
+    await refresh();
+  }
+}
+
 $("#role-employee").onclick = () => setRole("employee");
 $("#role-manager").onclick = () => setRole("manager");
+$("#switch-user-btn").onclick = showLogin;
+$("#receipt-sort").addEventListener("change", (e) => {
+  receiptSort = e.target.value;
+  renderLists();
+});
+document.querySelectorAll("[data-login-role]").forEach((btn) => {
+  btn.addEventListener("click", () => enterApp(btn.dataset.loginRole));
+});
 
 // Try random receipt: pick one of the sample images in /sample-receipts
 // (local-only folder, see .gitignore) and STAGE it in the preview. It only
@@ -563,9 +815,13 @@ $("#extract-btn").onclick = async () => {
 };
 
 const dropZone = $("#drop-zone");
-dropZone.addEventListener("click", (e) => { if (!e.target.closest("button")) $("#file-input").click(); });
 $("#upload-btn").onclick = (e) => { e.stopPropagation(); $("#file-input").click(); };
+$("#camera-btn").onclick = (e) => { e.stopPropagation(); openCameraModal(); };
 $("#file-input").addEventListener("change", (e) => {
+  if (e.target.files[0]) stageFile(e.target.files[0]);
+  e.target.value = "";
+});
+$("#camera-input").addEventListener("change", (e) => {
   if (e.target.files[0]) stageFile(e.target.files[0]);
   e.target.value = "";
 });
@@ -583,17 +839,11 @@ dropZone.addEventListener("drop", (e) => {
 async function init() {
   try {
     const meta = await api("/api/meta");
-    $("#provider-badge").textContent = meta.ai_provider === "claude" ? "AI · Claude" : "AI · mock";
+    const label = meta.ai_provider === "claude" ? "AI · Claude" : "AI · mock";
+    $("#provider-badge").textContent = label;
+    $("#login-provider-badge").textContent = label;
   } catch {}
   if (location.hash === "#manager") setRole("manager");
-  await refresh();
-  // Preview starts empty — it fills when a receipt is uploaded or selected.
-  // Deep link: #r<id> opens a receipt directly (e.g. /#r2).
-  const deepLink = location.hash.match(/^#r(\d+)$/);
-  if (deepLink && role === "employee") {
-    expandedId = Number(deepLink[1]);
-    await selectReceipt(expandedId);
-  }
   // Poll while anything is processing so stages advance live in the table.
   // ("uploaded" is now an idle state — it waits for the employee to submit.)
   setInterval(async () => {

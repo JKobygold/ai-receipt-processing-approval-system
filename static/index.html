@@ -8,28 +8,51 @@
 </head>
 <body>
 
-  <header class="topbar">
-    <div class="topbar-left">
-      <span class="topbar-title">Expense Receipts</span>
-      <span id="provider-badge" class="provider-badge"></span>
+  <section id="login-screen" class="login-screen">
+    <div class="login-card role-login-card">
+      <img src="/logo-rajant.png" alt="Rajant" class="login-logo-img">
+      <div class="login-logo">Expense Receipts</div>
+      <p class="login-subtitle">Choose your workspace</p>
+      <div class="profile-picker" aria-label="Choose a role">
+        <button class="profile-tile" data-login-role="employee" type="button">
+          <span class="profile-orb profile-employee">JG</span>
+          <span class="profile-name">Employee</span>
+          <span class="profile-meta">Upload and submit receipts</span>
+        </button>
+        <button class="profile-tile" data-login-role="manager" type="button">
+          <span class="profile-orb profile-manager">MG</span>
+          <span class="profile-name">Manager</span>
+          <span class="profile-meta">Review pending approvals</span>
+        </button>
+      </div>
+      <div id="login-provider-badge" class="login-provider-badge"></div>
     </div>
-    <div class="topbar-right">
-      <div class="user-profile">
-        <div class="user-avatar">JG</div>
-        <div class="user-info">
-          <span class="user-name">Jacob Gold</span>
-          <span id="user-role" class="user-role">Employee</span>
+  </section>
+
+  <div id="main-app" hidden>
+    <header class="topbar">
+      <div class="topbar-left">
+        <span class="topbar-title">Expense Receipts</span>
+        <span id="provider-badge" class="provider-badge"></span>
+      </div>
+      <div class="topbar-right">
+        <div class="user-profile">
+          <div id="topbar-avatar" class="user-avatar">JG</div>
+          <div class="user-info">
+            <span id="user-name" class="user-name">Jacob Gold</span>
+            <span id="user-role" class="user-role">Employee</span>
+          </div>
+          <button id="switch-user-btn" class="switch-user-btn" type="button">Switch</button>
         </div>
-        <div class="role-toggle">
+        <div class="role-toggle" hidden>
           <button id="role-employee" class="active">Employee</button>
           <button id="role-manager">Manager</button>
         </div>
+        <img src="/logo-rajant.png" alt="Rajant" class="topbar-logo">
       </div>
-      <img src="/logo-rajant.png" alt="Rajant" class="topbar-logo">
-    </div>
-  </header>
+    </header>
 
-  <div class="page-body">
+    <div class="page-body">
 
     <!-- Employee instructions — compact 4-step strip -->
     <section id="howto" class="dash-card howto">
@@ -67,10 +90,15 @@
           <div id="drop-zone" class="drop-zone">
             <input type="file" id="file-input"
                    accept="image/png,image/jpeg,image/heic,image/heif,application/pdf,.png,.jpg,.jpeg,.heic,.heif,.pdf" hidden>
+            <input type="file" id="camera-input"
+                   accept="image/*,.heic,.heif" capture="environment" hidden>
             <div class="drop-icon">🧾</div>
             <div class="drop-title">Drag &amp; drop your receipt</div>
             <div class="drop-sub">or</div>
-            <button id="upload-btn" class="btn btn-primary">Browse files</button>
+            <div class="import-button-row">
+              <button id="upload-btn" class="btn btn-primary">Browse files</button>
+              <button id="camera-btn" class="btn">Take photo</button>
+            </div>
             <div class="drop-hint">PDF, PNG, JPEG or HEIC · one receipt per file · 15&nbsp;MB max</div>
             <div id="upload-status" class="upload-status"></div>
           </div>
@@ -98,7 +126,20 @@
 
       <!-- Receipts table -->
       <div class="dash-card table-card">
-        <div class="card-header">My receipts</div>
+        <div class="card-header table-card-header">
+          <span>My receipts</span>
+          <label class="sort-control">
+            <span>Sort by</span>
+            <select id="receipt-sort">
+              <option value="merchant-asc">Merchant A-Z</option>
+              <option value="date-desc">Date newest first</option>
+              <option value="date-asc">Date oldest first</option>
+              <option value="total-asc">Total low to high</option>
+              <option value="total-desc">Total high to low</option>
+              <option value="stage-asc">Stage order</option>
+            </select>
+          </label>
+        </div>
         <div id="employee-table"></div>
       </div>
     </section>
@@ -117,6 +158,8 @@
     <div id="detail-overlay" class="modal-overlay" hidden>
       <div id="detail-panel" class="modal-box"></div>
     </div>
+
+  </div>
 
   </div>
 

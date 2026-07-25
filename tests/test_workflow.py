@@ -87,6 +87,17 @@ def test_duplicate_detection_same_file():
     assert r["duplicate_of_id"] == a
 
 
+def test_delete_receipt_removes_entry_and_clears_duplicate_reference():
+    a = upload(b"delete-original.png", PNG + b"\x00deletebytes").json()["id"]
+    b = upload(b"delete-dupe.png", PNG + b"\x00deletebytes").json()["id"]
+    assert client.get(f"/api/receipts/{b}").json()["duplicate_of_id"] == a
+
+    assert client.delete(f"/api/receipts/{a}").json() == {"ok": True}
+    assert client.get(f"/api/receipts/{a}").status_code == 404
+    assert all(r["id"] != a for r in client.get("/api/receipts").json())
+    assert client.get(f"/api/receipts/{b}").json()["duplicate_of_id"] is None
+
+
 def test_not_a_receipt_is_flagged():
     rid = upload(b"cat-photo.png", PNG + b"NOTARECEIPT").json()["id"]
     r = client.get(f"/api/receipts/{rid}").json()

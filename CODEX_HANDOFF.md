@@ -1,0 +1,319 @@
+# Codex Handoff Notes
+
+## Recent UI Update
+
+Codex GPT-5.5 made minor modifications to the receipt approval app to add a CRM-inspired role selection login screen.
+
+## Agentic Coordination Protocol
+
+After each future edit, update this handoff file with:
+
+- What changed.
+- Which files were modified.
+- What verification was run.
+- Any known risk, follow-up, or reviewer-facing note.
+
+Reason: this project is being coordinated across AI coding agents. Claude/Fable ran out of usable token budget, so this markdown file should act as the continuity layer between agents and preserve the working context without relying on chat history.
+
+## What Changed
+
+- Added a full-screen login gate styled after the Bala Chabad CRM login page.
+- Added two Mac-style profile tiles side by side:
+  - Employee: opens the employee upload/review/submission workflow.
+  - Manager: opens the manager approval queue.
+- Added a `Switch` button in the app header so the reviewer can return to the profile picker.
+- Kept the existing lightweight role model: the frontend still sends `X-Role: employee|manager`, and manager-only actions remain enforced server-side.
+- Preserved the existing receipt workflow, API behavior, tests, and database schema.
+
+## Latest Edit: Upload Time + Delete Receipts
+
+Codex GPT-5.5 added upload-time visibility and receipt deletion.
+
+### What Changed
+
+- Added `DELETE /api/receipts/{receipt_id}` to remove a receipt from SQLite and delete the uploaded file.
+- Delete also clears `duplicate_of_id` references from other receipts before removing the target row.
+- Added a `Delete` button to each row in the employee `My receipts` table.
+- Deleting through the UI removes the entry from the page after the database delete succeeds.
+- Added upload metadata to receipt details:
+  - Uploaded time.
+  - Original file name.
+  - Last updated time.
+- Added upload/submission metadata to the manager review modal.
+- No database migration was needed for upload time because the schema already had `created_at` and `updated_at`.
+
+### Files Modified
+
+- `app/main.py`
+- `static/app.js`
+- `static/styles.css`
+- `tests/test_workflow.py`
+- `CODEX_HANDOFF.md`
+
+### Verification
+
+- Ran the project test suite with the local virtualenv: `8 passed`.
+- Verified the live server picked up the new delete route:
+  - `DELETE /api/receipts/999999` now returns `404 Receipt not found` instead of `405 Method Not Allowed`.
+- Ran a browser smoke test against `http://localhost:8080/`:
+  - Employee view opens.
+  - Delete buttons appear in `My receipts`.
+  - Receipt details show uploaded-time metadata.
+- Created a temporary receipt through the API, deleted it through the UI, and confirmed:
+  - The row disappeared from the page.
+  - `GET /api/receipts/{id}` returned `404`.
+
+### Known Risk / Follow-Up
+
+- Delete is available to the demo employee UI for all receipt statuses. If the app needs stricter business rules later, restrict deletion to draft-like states such as `uploaded`, `failed`, `review`, or `rejected`.
+- The current demo auth model is still role-toggle/profile-selection based, not real authentication.
+
+## Latest Edit: Sort My Receipts
+
+Codex GPT-5.5 added frontend sorting controls to the employee `My receipts` section.
+
+### What Changed
+
+- Added a `Sort by` select in the `My receipts` table header.
+- Supported sort modes:
+  - Merchant A-Z.
+  - Date newest first.
+  - Date oldest first.
+  - Total low to high.
+  - Total high to low.
+  - Stage order.
+- Stage order is defined as:
+  - `uploaded`
+  - `processing`
+  - `failed`
+  - `review`
+  - `rejected`
+  - `submitted`
+  - `approved`
+- Sorting is frontend-only and operates on the already-loaded receipt list.
+
+### Files Modified
+
+- `static/index.html`
+- `static/app.js`
+- `static/styles.css`
+- `CODEX_HANDOFF.md`
+
+### Verification
+
+- Ran the project test suite with the local virtualenv: `8 passed`.
+- Ran a browser smoke test against `http://localhost:8080/`:
+  - Employee view opens.
+  - Sort control is visible.
+  - All six sort options are present.
+  - Each sort option can be selected while the receipt rows remain rendered.
+
+### Known Risk / Follow-Up
+
+- Date sorting uses `purchase_date` when present and falls back to `created_at` for unprocessed receipts.
+- Total sorting places receipts without totals at the bottom for low-to-high.
+
+## Latest Edit: Bulk Select + Delete Selected
+
+Codex GPT-5.5 added multi-select deletion for receipts that were improperly added.
+
+### What Changed
+
+- Added a checkbox to each employee `My receipts` row.
+- Added a conditional `Delete selected` button in the far-right action column after `Stage`.
+- The bulk delete button appears only when one or more receipts are selected.
+- The button label includes the selected count, for example `Delete selected (2)`.
+- Bulk deletion calls the existing `DELETE /api/receipts/{id}` endpoint for each selected receipt, then refreshes the receipt table.
+- If a selected receipt is open in the details panel or expanded inline, that state is cleared after deletion.
+- Individual row-level `Delete` buttons remain available.
+
+### Files Modified
+
+- `static/app.js`
+- `static/styles.css`
+- `CODEX_HANDOFF.md`
+
+### Verification
+
+- Ran the project test suite with the local virtualenv: `8 passed`.
+- Ran a browser smoke test against `http://localhost:8080/`:
+  - Created two temporary receipts through the API.
+  - Confirmed `Delete selected` is hidden before selection.
+  - Checked both receipt checkboxes.
+  - Confirmed `Delete selected (2)` appears.
+  - Clicked `Delete selected` and accepted the confirmation dialog.
+  - Confirmed both rows disappeared from the page.
+  - Confirmed both receipt IDs returned `404` from the API.
+
+### Known Risk / Follow-Up
+
+- Bulk delete currently runs multiple existing single-delete API calls from the frontend. A future backend `DELETE /api/receipts` bulk endpoint could make this cleaner for large batches.
+
+## Latest Edit: Message to Manager Popup
+
+Codex GPT-5.5 changed the employee note flow from an inline textarea into a popup modal.
+
+### What Changed
+
+- Replaced the always-visible `Message to manager` textarea in receipt details with a single `Message to manager` button.
+- Clicking the button opens a popup modal with:
+  - A message textarea.
+  - A 100-word counter and the same word-limit behavior.
+  - `Submit message` and `Cancel` buttons.
+- After a successful submit:
+  - The message is saved through the existing `POST /api/receipts/{id}/message` endpoint.
+  - The popup closes.
+  - The receipt details panel refreshes.
+  - The UI shows `Message sent.`
+- Existing manager-view behavior still shows the employee note in the review modal.
+
+### Files Modified
+
+- `static/app.js`
+- `static/styles.css`
+- `CODEX_HANDOFF.md`
+
+### Verification
+
+- Ran the project test suite with the local virtualenv: `8 passed`.
+- Ran a browser smoke test against `http://localhost:8080/`:
+  - Created a temporary receipt through the API.
+  - Opened the employee receipt details.
+  - Confirmed `Message to manager` appears as a button.
+  - Clicked the button and confirmed the popup appears.
+  - Entered a message and clicked `Submit message`.
+  - Confirmed the popup closed and receipt details showed `Message sent.`
+  - Confirmed the API stored the note.
+  - Deleted the temporary receipt afterward.
+
+### Known Risk / Follow-Up
+
+- The message popup reuses the existing global modal container used by manager review. This is fine for the current single-modal UI, but a future multi-modal design should split modal state by feature.
+
+## Latest Edit: Camera Capture Import
+
+Codex GPT-5.5 added a camera-friendly receipt import path.
+
+### What Changed
+
+- Added a `Take photo` button next to `Browse files` in the employee import card.
+- Added a hidden camera-specific file input:
+  - `accept="image/*,.heic,.heif"`
+  - `capture="environment"`
+- On mobile devices, the button should open the rear camera when supported by the browser.
+- On desktop, the same button falls back to image file selection.
+- Captured/selected photos use the existing staging flow:
+  - The image appears in `Receipt preview`.
+  - `Submit receipt` appears.
+  - Nothing is saved to `My receipts` until `Submit receipt` is pressed.
+- Updated validation so camera images with generic file names are accepted when the MIME type starts with `image/`.
+
+### Files Modified
+
+- `static/index.html`
+- `static/app.js`
+- `static/styles.css`
+- `CODEX_HANDOFF.md`
+
+### Verification
+
+- Ran the project test suite with the local virtualenv: `8 passed`.
+- Ran a browser smoke test against `http://localhost:8080/`:
+  - Employee view opens.
+  - `Take photo` button is visible.
+  - Camera input has `capture="environment"`.
+  - Setting an image file through the camera input stages it into the receipt preview.
+  - `Submit receipt` becomes visible.
+
+### Known Risk / Follow-Up
+
+- Browser camera behavior depends on device/browser support. Mobile Safari/Chrome generally honor `capture="environment"`; desktop browsers usually open a file picker.
+
+## Latest Edit: Drop Zone No Longer Acts As Browse Button
+
+Codex GPT-5.5 fixed the import area so only explicit buttons open file/camera inputs.
+
+### What Changed
+
+- Removed the click handler from the entire drag-and-drop zone.
+- The drop zone still supports drag/drop.
+- `Browse files` is now the only control that opens the regular file picker.
+- `Take photo` is now the only control that opens the camera/image input.
+- Removed the pointer cursor from the drop zone so it does not look like one giant button.
+
+### Files Modified
+
+- `static/app.js`
+- `static/styles.css`
+- `CODEX_HANDOFF.md`
+
+### Verification
+
+- Ran the project test suite with the local virtualenv: `8 passed`.
+- Ran a browser smoke test against `http://localhost:8080/`:
+  - Clicking drop-zone text does not stage/open anything.
+  - `Browse files` remains visible.
+  - `Take photo` remains visible.
+  - Camera input still has `capture="environment"`.
+  - Setting a camera image stages it into the receipt preview.
+
+### Known Risk / Follow-Up
+
+- None. This keeps drag/drop behavior while making the two import buttons independent.
+
+## Latest Edit: Real Camera Capture
+
+Codex GPT-5.5 upgraded `Take photo` from a camera-friendly file picker to actual browser camera capture.
+
+### What Changed
+
+- `Take photo` now opens a camera popup using `navigator.mediaDevices.getUserMedia`.
+- The popup shows a live camera preview.
+- `Capture photo` grabs the current video frame into a JPEG file.
+- The captured image uses the existing staging flow:
+  - The popup closes.
+  - The captured photo appears in `Receipt preview`.
+  - `Submit receipt` becomes visible.
+  - The receipt is not saved to `My receipts` until `Submit receipt` is clicked.
+- Added camera cleanup so the video stream stops when the modal closes.
+- Kept a `Choose image` fallback inside the camera popup for browsers/devices without camera support or permission.
+
+### Files Modified
+
+- `static/app.js`
+- `static/styles.css`
+- `CODEX_HANDOFF.md`
+
+### Verification
+
+- Ran the project test suite with the local virtualenv: `8 passed`.
+- Ran a browser smoke test against `http://localhost:8080/` using Chrome's fake camera device:
+  - `Take photo` opens the camera modal.
+  - Camera status becomes `Camera ready.`
+  - `Capture photo` becomes enabled.
+  - Capturing a frame closes the modal.
+  - The captured image appears in `Receipt preview`.
+
+### Known Risk / Follow-Up
+
+- Real camera access requires browser permission and a secure context. `localhost` is treated as secure by modern browsers, but deployed usage should be over HTTPS.
+
+## Files Modified
+
+- `static/index.html`
+- `static/styles.css`
+- `static/app.js`
+
+## Verification
+
+- Ran the project test suite with the local virtualenv: `7 passed`.
+- Ran a browser smoke test against `http://localhost:8080/`:
+  - Login screen appears.
+  - Manager profile opens the manager view.
+  - Employee profile opens the employee view.
+
+## Suggested README Note
+
+In the AI tools section, mention:
+
+> Development used Claude Code for the initial implementation. Codex GPT-5.5 made minor UI/workflow polish modifications, including the CRM-inspired role selection login screen and browser smoke verification.

@@ -266,6 +266,24 @@ def update_receipt(receipt_id: int, body: ReceiptUpdate):
         return row_to_receipt(conn, fetch_receipt(conn, receipt_id))
 
 
+@app.delete("/api/receipts/{receipt_id}")
+def delete_receipt(receipt_id: int):
+    with get_db() as conn:
+        row = fetch_receipt(conn, receipt_id)
+        stored_path = UPLOAD_DIR / Path(row["stored_path"]).name
+
+    try:
+        stored_path.unlink(missing_ok=True)
+    except OSError as e:
+        raise HTTPException(500, f"File cleanup failed: {e}") from e
+
+    with get_db() as conn:
+        fetch_receipt(conn, receipt_id)
+        conn.execute("UPDATE receipts SET duplicate_of_id=NULL WHERE duplicate_of_id=?", (receipt_id,))
+        conn.execute("DELETE FROM receipts WHERE id=?", (receipt_id,))
+    return {"ok": True}
+
+
 @app.post("/api/receipts/{receipt_id}/extract")
 def extract_receipt(receipt_id: int, background: BackgroundTasks):
     """Send the receipt to the AI extractor — first run or re-run."""
