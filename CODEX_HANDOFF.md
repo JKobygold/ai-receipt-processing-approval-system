@@ -1171,3 +1171,28 @@ Claude Code (Fable 5) addressed "every random receipt looks the same".
 ### Known Risk / Follow-Up
 
 - The scraped real-photo pool is local-only by design. If it should ship publicly, replace with license-cleared photos first.
+
+## Latest Edit: Real Receipt Photos Replace Synthetic Samples
+
+Claude Code (Fable 5) swapped the random-receipt pool to real-world photos per Jacob's request.
+
+### What Changed
+
+- Replaced the 20 synthetic generated receipts with 17 curated **real receipt photos** (Walmart, Home Depot, Sephora, Epic Steakhouse, Louis Vuitton, McDonald's, Marshalls, Target, Sam's Club, a UK receipt stack, a scanned invoice) — varied merchants, currencies, angles, and lighting; the messy real-world inputs that best demo extraction.
+- Sourced via web image search; **dropped every watermarked-stock image** (Shutterstock/Alamy/Adobe), Freepik-attributed templates, and generic receipt-generator renders during curation, so nothing embarrassing is public. Files renamed `real-receipt-01..17`.
+- Removed the now-unused synthetic generator (`scripts/generate_sample_receipts.py`) and the split local-manifest scheme; `manifest.json` now lists the real photos, and the folder is fully tracked (stale `.gitignore` rules removed).
+
+### Files Modified
+
+- `static/sample-receipts/` (synthetics + scraped set → 17 real photos + manifest)
+- `.gitignore`; removed `scripts/generate_sample_receipts.py`
+- `CODEX_HANDOFF.md`
+
+### Verification
+
+- `node --check` clean; test suite `8 passed`; local server serves manifest (17) and images (200).
+- Deployed to Railway; live pool = the 17 real photos.
+
+### Known Risk / Follow-Up
+
+- The photos are real-world receipts sourced from the public web (no watermarks), used as demo fixtures. For a fully license-bulletproof public repo, swap for a CC-licensed receipt dataset — cosmetic, not blocking.

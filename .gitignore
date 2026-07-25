@@ -15,5 +15,3 @@ MEMORY.md
 
 # Synthetic sample receipts used by the "Try random receipt" button are tracked
 # so the feature works in deployed demos.
-static/sample-receipts/receipt-*
-static/sample-receipts/local-manifest.json
